@@ -15,7 +15,7 @@ public class EmcSampler extends AbstractMaxEntropySampler {
     }
 
     static ItemInfo[] itemData;
-    static long[] itemEmc;
+    static long[] itemValues;
 
     @SubscribeEvent
     static void onEmcRemap(EMCRemapEvent event) {
@@ -26,14 +26,14 @@ public class EmcSampler extends AbstractMaxEntropySampler {
         // We keep using ItemInfo, since it's a reference type anyway
         int size = emcMap.size();
         itemData = new ItemInfo[size];
-        itemEmc = new long[size];
+        itemValues = new long[size];
 
         ObjectIterator<Object2LongMap.Entry<ItemInfo>> iterator = Object2LongMaps.fastIterator(emcMap);
         int index = 0;
         while (iterator.hasNext()) {
             Object2LongMap.Entry<ItemInfo> entry = iterator.next();
             itemData[index] = entry.getKey();
-            itemEmc[index] = entry.getLongValue();
+            itemValues[index] = entry.getLongValue();
 
             index++;
         }

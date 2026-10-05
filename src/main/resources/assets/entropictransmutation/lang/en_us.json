@@ -1,0 +1,13 @@
+{
+  "itemGroup.entropictransmutation": "Example Mod Tab",
+  "block.entropictransmutation.example_block": "Example Block",
+  "item.entropictransmutation.example_item": "Example Item",
+
+  "entropictransmutation.configuration.title": "Entropic Transmutation Configs",
+  "entropictransmutation.configuration.section.entropictransmutation.common.toml": "Entropic Transmutation Configs",
+  "entropictransmutation.configuration.section.entropictransmutation.common.toml.title": "Entropic Transmutation Configs",
+  "entropictransmutation.configuration.items": "Item List",
+  "entropictransmutation.configuration.logDirtBlock": "Log Dirt Block",
+  "entropictransmutation.configuration.magicNumberIntroduction": "Magic Number Text",
+  "entropictransmutation.configuration.magicNumber": "Magic Number"
+}

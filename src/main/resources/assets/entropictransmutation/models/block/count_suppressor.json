@@ -1,0 +1,48 @@
+{
+	"format_version": "1.9.0",
+	"credit": "Made with Blockbench",
+	"texture_size": [32, 32],
+	"textures": {
+		"4": "entropictransmutation:block/count_suppressor",
+		"particle": "entropictransmutation:block/count_suppressor"
+	},
+	"elements": [
+		{
+			"name": "base",
+			"from": [4, 5, 14],
+			"to": [12, 11, 16],
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 8, 16]},
+			"faces": {
+				"north": {"uv": [0, 0, 4, 3], "texture": "#4"},
+				"east": {"uv": [1, 6, 2, 9], "texture": "#4"},
+				"south": {"uv": [0, 3, 4, 6], "texture": "#4"},
+				"west": {"uv": [2, 6, 3, 9], "texture": "#4"},
+				"up": {"uv": [5.5, 0, 9.5, 1], "texture": "#4"},
+				"down": {"uv": [5.5, 1, 9.5, 2], "texture": "#4"}
+			}
+		},
+		{
+			"name": "bar",
+			"from": [9, 4, 13],
+			"to": [11, 12, 16],
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 8, 16]},
+			"faces": {
+				"north": {"uv": [5.5, 2, 6.5, 6], "texture": "#4"},
+				"east": {"uv": [4, 0, 5.5, 4], "texture": "#4"},
+				"south": {"uv": [0, 6, 1, 10], "texture": "#4"},
+				"west": {"uv": [4, 4, 5.5, 8], "texture": "#4"},
+				"up": {"uv": [3, 6, 4, 7.5], "texture": "#4"},
+				"down": {"uv": [5.5, 6, 6.5, 7.5], "texture": "#4"}
+			}
+		}
+	],
+	"groups": [
+		{
+			"name": "count_suppressor",
+			"origin": [8, 8, 8],
+			"scope": 0,
+			"color": 0,
+			"children": [0, 1]
+		}
+	]
+}

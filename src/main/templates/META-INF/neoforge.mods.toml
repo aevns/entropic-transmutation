@@ -89,7 +89,7 @@ config="${mod_id}.mixins.json"
 [[dependencies.${mod_id}]] # Keep the template placeholder if it uses one
     modId = "projecte"
     type = "required"
-    versionRange = "[1.21.1-PE1.1.0,)"
+    versionRange = "[1.1.0,)"
     ordering = "NONE"
     side = "BOTH"
 

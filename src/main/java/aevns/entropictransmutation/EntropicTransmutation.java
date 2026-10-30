@@ -1,5 +1,7 @@
 package aevns.entropictransmutation;
 
+import aevns.entropictransmutation.block.TransmuterAddonBlock;
+import aevns.entropictransmutation.block.TransmuterBlock;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -48,6 +50,49 @@ public class EntropicTransmutation {
     public static final DeferredBlock<Block> EXAMPLE_BLOCK = BLOCKS.registerSimpleBlock("example_block", BlockBehaviour.Properties.of().mapColor(MapColor.STONE));
     // Creates a new BlockItem with the id "entropictransmutation:example_block", combining the namespace and path
     public static final DeferredItem<BlockItem> EXAMPLE_BLOCK_ITEM = ITEMS.registerSimpleBlockItem("example_block", EXAMPLE_BLOCK);
+
+    // TODO: Move this logic to a utility class or somesuch
+    public static final DeferredBlock<TransmuterBlock> TRANSMUTER = BLOCKS.register(
+            "transmuter",
+            () -> new TransmuterBlock(BlockBehaviour.Properties.of().noOcclusion().strength(2.0f))
+    );
+    public static final DeferredItem<BlockItem> TRANSMUTER_ITEM = ITEMS.registerSimpleBlockItem(
+            "transmuter",
+            TRANSMUTER
+    );
+    public static final DeferredBlock<TransmuterBlock> TRANSMUTER_MONITOR = BLOCKS.register(
+            "transmuter_monitor",
+            () -> new TransmuterBlock(BlockBehaviour.Properties.of().noOcclusion().strength(2.0f))
+    );
+    public static final DeferredItem<BlockItem> TRANSMUTER_MONITOR_ITEM = ITEMS.registerSimpleBlockItem(
+            "transmuter_monitor",
+            TRANSMUTER_MONITOR
+    );
+
+    public static final DeferredBlock<TransmuterAddonBlock> COUNT_SUPPRESSOR = BLOCKS.register(
+            "count_suppressor",
+            () -> new TransmuterAddonBlock(BlockBehaviour.Properties.of().noCollission().noOcclusion().strength(2.0f))
+    );
+    public static final DeferredItem<BlockItem> COUNT_SUPPRESSOR_ITEM = ITEMS.registerSimpleBlockItem(
+            "count_suppressor",
+            COUNT_SUPPRESSOR
+    );
+    public static final DeferredBlock<TransmuterAddonBlock> TYPE_SUPPRESSOR = BLOCKS.register(
+            "type_suppressor",
+            () -> new TransmuterAddonBlock(BlockBehaviour.Properties.of().noCollission().noOcclusion().strength(2.0f))
+    );
+    public static final DeferredItem<BlockItem> TYPE_SUPPRESSOR_ITEM = ITEMS.registerSimpleBlockItem(
+            "type_suppressor",
+            TYPE_SUPPRESSOR
+    );
+    public static final DeferredBlock<TransmuterAddonBlock> VOID_SUPPRESSOR = BLOCKS.register(
+            "void_suppressor",
+            () -> new TransmuterAddonBlock(BlockBehaviour.Properties.of().noCollission().noOcclusion().strength(2.0f))
+    );
+    public static final DeferredItem<BlockItem> VOID_SUPPRESSOR_ITEM = ITEMS.registerSimpleBlockItem(
+            "void_suppressor",
+            VOID_SUPPRESSOR
+    );
 
     // Creates a new food item with the id "entropictransmutation:example_id", nutrition 1 and saturation 2
     public static final DeferredItem<Item> EXAMPLE_ITEM = ITEMS.registerSimpleItem("example_item", new Item.Properties().food(new FoodProperties.Builder()

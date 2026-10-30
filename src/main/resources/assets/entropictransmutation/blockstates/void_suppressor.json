@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "entropictransmutation:block/void_suppressor"},
+    "facing=east":  { "model": "entropictransmutation:block/void_suppressor", "y": 90},
+    "facing=south": { "model": "entropictransmutation:block/void_suppressor", "y": 180},
+    "facing=west":  { "model": "entropictransmutation:block/void_suppressor", "y": 270}
+  }
+}

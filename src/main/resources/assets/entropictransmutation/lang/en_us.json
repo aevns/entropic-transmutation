@@ -1,6 +1,10 @@
 {
-  "itemGroup.entropictransmutation": "Example Mod Tab",
-  "block.entropictransmutation.example_block": "Example Block",
+  "itemGroup.entropictransmutation": "Entropic Transmutation",
+  "block.entropictransmutation.transmuter": "Transmuter",
+  "block.entropictransmutation.transmuter_monitor": "Transmuter Monitor",
+  "block.entropictransmutation.type_suppressor": "Type Suppressor",
+  "block.entropictransmutation.count_suppressor": "Count Suppressor",
+  "block.entropictransmutation.void_suppressor": "Void Suppressor",
   "item.entropictransmutation.example_item": "Example Item",
 
   "entropictransmutation.configuration.title": "Entropic Transmutation Configs",

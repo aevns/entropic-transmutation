@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "entropictransmutation:block/transmuter"},
+    "facing=east":  { "model": "entropictransmutation:block/transmuter", "y": 90},
+    "facing=south": { "model": "entropictransmutation:block/transmuter", "y": 180},
+    "facing=west":  { "model": "entropictransmutation:block/transmuter", "y": 270}
+  }
+}

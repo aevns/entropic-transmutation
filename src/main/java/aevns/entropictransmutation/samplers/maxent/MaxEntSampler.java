@@ -2,6 +2,9 @@ package aevns.entropictransmutation.samplers.maxent;
 
 import net.minecraft.util.RandomSource;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Samples (labelIndex, count) from the maximum-entropy distribution (relative to a prior) with
  * E[N] = n (n in {1/4, 1, 4, 16}) and E[N*V] = s, count in 0..64. Count 0 is a single null state
@@ -75,7 +78,7 @@ public final class MaxEntSampler {
         return new Sample(unpackLabelIndex(bits), unpackCount(bits));
     }
 
-    public String label(int labelIndex) { return labels[labelIndex].toString(); }
+    public Object label(int labelIndex) { return labels[labelIndex]; }
 
     // ---------------------------------------------------------------- introspection / verification
 
@@ -102,5 +105,41 @@ public final class MaxEntSampler {
         double[] scaledMoments = countTables[expectedCountIndex]
                 .realizedMoments(s * inverseValueScale, labelTable::rowMeanScaledValue);
         return new double[] {scaledMoments[0], scaledMoments[1] * valueScale};
+    }
+
+    /** The exact distribution the sampler realizes at a target, read from the stored tables (no sampling). */
+    static final class ImpliedDistribution {
+        /** Probability of each count, index 0 being the null state. */
+        final double[] countProbabilities = new double[CountRange.STATE_COUNT];
+        /** jointCountByUniqueValue[count - 1][uniqueIndex] = P(count, unique value) for count >= 1. */
+        final double[][] jointCountByUniqueValue;
+
+        ImpliedDistribution(int uniqueCount) {
+            jointCountByUniqueValue = new double[CountRange.MAX_COUNT][uniqueCount];
+        }
+
+        /** P(unique value | count > 0). */
+        double[] labelMarginalGivenLabelled() {
+            double[] marginal = new double[jointCountByUniqueValue[0].length];
+            double labelled = 0;
+            for (double[] byValue : jointCountByUniqueValue)
+                for (int k = 0; k < marginal.length; k++) { marginal[k] += byValue[k]; labelled += byValue[k]; }
+            for (int k = 0; k < marginal.length; k++) marginal[k] /= labelled;
+            return marginal;
+        }
+    }
+
+    /** The distribution sampleBits draws from at target s (raw units; clamped like sampleBits does). */
+    ImpliedDistribution impliedDistribution(int expectedCountIndex, double s) {
+        ImpliedDistribution implied = new ImpliedDistribution(groups.uniqueCount);
+        Map<Integer, double[]> rowDistributions = new HashMap<>();
+        countTables[expectedCountIndex].forEachOutcome(s * inverseValueScale, (probability, count, labelRow) -> {
+            implied.countProbabilities[count] += probability;
+            if (count == 0) return;
+            double[] byValue = rowDistributions.computeIfAbsent(labelRow, labelTable::rowDistribution);
+            double[] joint = implied.jointCountByUniqueValue[count - 1];
+            for (int k = 0; k < joint.length; k++) joint[k] += probability * byValue[k];
+        });
+        return implied;
     }
 }

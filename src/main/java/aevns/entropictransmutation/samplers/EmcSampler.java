@@ -14,7 +14,6 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Comparator;
@@ -66,7 +65,7 @@ public final class EmcSampler {
             itemData[i] = unsortedItemData[indices[i]];
             itemValues[i] = unsortedItemValues[indices[i]];
         }
-
+        LOGGER.info(Arrays.toString(itemValues));
         LOGGER.info("Creating max entropy sampler for {} items [EMC].", newSize);
         params = new Params();
         sampler = new MaxEntSampler(itemValues, itemData, params);

@@ -26,8 +26,10 @@ final class LabelFamily {
     /** Rows [0, negativeRowOffset) belong to the positive-t branch, the rest to the negative-t branch. */
     private final int negativeRowOffset;
     private final LabelTable table;
+    private final double scaledValueSpan;
 
     LabelFamily(double[] scaledValues, double[] labelPriorWeights, Params params) {
+        scaledValueSpan = scaledValues[scaledValues.length - 1] - scaledValues[0];
         positiveBranch = new LabelTiltBranch(+1, scaledValues, labelPriorWeights);
         negativeBranch = new LabelTiltBranch(-1, scaledValues, labelPriorWeights);
         for (LabelTiltBranch branch : new LabelTiltBranch[] {positiveBranch, negativeBranch}) {
@@ -56,6 +58,13 @@ final class LabelFamily {
 
     /** Most negative such beta. */
     double minBeta() { return -negativeBranch.saturationTau; }
+
+    /**
+     * Smallest |beta| at which any label weight changes by more than about 0.1% at any count, i.e.
+     * 1e-3 / (MAX_COUNT * value span). Below this the label distributions are indistinguishable from beta = 0,
+     * so beta candidates need not go lower. The beta range [this, saturation] can span many decades.
+     */
+    double smallestRelevantBetaMagnitude() { return 1e-3 / (CountRange.MAX_COUNT * scaledValueSpan); }
 
     /** Evaluates the family at signed t (|t| beyond the saturation point is treated as saturated). */
     void evaluateAtT(double signedT, Point out) {

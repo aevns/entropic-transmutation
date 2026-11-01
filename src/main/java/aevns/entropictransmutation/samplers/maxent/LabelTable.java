@@ -110,21 +110,13 @@ final class LabelTable {
         return chosen;
     }
 
-    private double blockMeanScaledValue(double t, int blockStart, int blockEnd) {
-        double reference = referenceValue(t, blockStart, blockEnd);
-        double totalWeight = 0, weightedValueSum = 0;
-        for (int k = blockStart; k < blockEnd; k++) {
-            double weight = interleavedWeightAndScaledValue[2 * k]
-                    * Math.exp(-t * (interleavedWeightAndScaledValue[2 * k + 1] - reference));
-            totalWeight += weight;
-            weightedValueSum += weight * interleavedWeightAndScaledValue[2 * k + 1];
-        }
-        return weightedValueSum / totalWeight;
-    }
-
-    /** Exact E[x | row] under the stored (quantized) block CDF. */
-    private double computeRowMeanScaledValue(int row) {
-        double t = rowSignedT[row], mean = 0;
+    /**
+     * The exact distribution over unique values that sampleUniqueIndex realizes for this row: each block's
+     * mass comes from the quantized CDF, and within a block mass is proportional to the prior-times-tilt weights.
+     */
+    double[] rowDistribution(int row) {
+        double[] distribution = new double[uniqueCount];
+        double t = rowSignedT[row];
         double previousCdf = 0;
         for (int block = 0; block < blocksPerRow; block++) {
             double currentCdf = (block == blocksPerRow - 1)
@@ -133,9 +125,24 @@ final class LabelTable {
             double blockMass = (currentCdf - previousCdf) / FixedPoint.SCALE;
             previousCdf = currentCdf;
             if (blockMass <= 0) continue;
-            mean += blockMass * blockMeanScaledValue(t, block * blockSize,
-                    Math.min(block * blockSize + blockSize, uniqueCount));
+            int blockStart = block * blockSize, blockEnd = Math.min(blockStart + blockSize, uniqueCount);
+            double reference = referenceValue(t, blockStart, blockEnd);
+            double totalWeight = 0;
+            for (int k = blockStart; k < blockEnd; k++) {
+                distribution[k] = interleavedWeightAndScaledValue[2 * k]
+                        * Math.exp(-t * (interleavedWeightAndScaledValue[2 * k + 1] - reference));
+                totalWeight += distribution[k];
+            }
+            for (int k = blockStart; k < blockEnd; k++) distribution[k] *= blockMass / totalWeight;
         }
+        return distribution;
+    }
+
+    /** Exact E[x | row] under the stored (quantized) block CDF. */
+    private double computeRowMeanScaledValue(int row) {
+        double[] distribution = rowDistribution(row);
+        double mean = 0;
+        for (int k = 0; k < uniqueCount; k++) mean += distribution[k] * interleavedWeightAndScaledValue[2 * k + 1];
         return mean;
     }
 }

@@ -44,8 +44,10 @@ final class CountTableBuilder {
 
     /**
      * Chooses the betas of the stored rows, equally spaced in Fisher-Rao arclength along the fixed-E[count]
-     * curve. The curve is first sampled at tanh-warped candidate betas spanning [minBeta, maxBeta], and the
-     * arclength is integrated over those samples.
+     * curve. The curve is first sampled at candidate betas, log-spaced in |beta| from the smallest relevant
+     * magnitude to the saturation beta on each side (plus beta = 0), and the arclength is integrated over
+     * those samples. Log spacing matters: the two sides can differ by many orders of magnitude in scale, and a
+     * coarse first interval next to beta = 0 would otherwise dominate the integral and absorb all the rows.
      */
     private static double[] placeRowsByFisherArclength(double expectedCount, LabelFamily labelFamily,
                                                        CountDistributionSolver solver, Params params) {
@@ -53,11 +55,14 @@ final class CountTableBuilder {
         int candidateCount = 2 * candidatesPerSign + 1;
         double[] candidateBetas = new double[candidateCount];
         double[] candidateSpeeds = new double[candidateCount];
-        double tanhSharpness = 2.0, tanhNormalizer = Math.tanh(tanhSharpness);
-        for (int i = 0; i <= candidatesPerSign; i++) {
-            double normalizedMagnitude = Math.tanh(tanhSharpness * i / (double) candidatesPerSign) / tanhNormalizer;
-            candidateBetas[candidatesPerSign + i] = labelFamily.maxBeta() * normalizedMagnitude;
-            candidateBetas[candidatesPerSign - i] = labelFamily.minBeta() * normalizedMagnitude;
+        double[] positiveMagnitudes = logSpacedMagnitudes(labelFamily.smallestRelevantBetaMagnitude(),
+                labelFamily.maxBeta(), candidatesPerSign);
+        double[] negativeMagnitudes = logSpacedMagnitudes(labelFamily.smallestRelevantBetaMagnitude(),
+                -labelFamily.minBeta(), candidatesPerSign);
+        candidateBetas[candidatesPerSign] = 0;
+        for (int i = 0; i < candidatesPerSign; i++) {
+            candidateBetas[candidatesPerSign + 1 + i] = positiveMagnitudes[i];
+            candidateBetas[candidatesPerSign - 1 - i] = -negativeMagnitudes[i];
         }
         for (int i = 0; i < candidateCount; i++) {
             solver.configureForBeta(candidateBetas[i]);
@@ -75,5 +80,14 @@ final class CountTableBuilder {
         rowBetas[0] = candidateBetas[0];
         rowBetas[rowCount - 1] = candidateBetas[candidateCount - 1];
         return rowBetas;
+    }
+
+    /** count magnitudes from lowest to highest, geometrically spaced (lowest is clamped below highest). */
+    private static double[] logSpacedMagnitudes(double lowest, double highest, int count) {
+        double effectiveLowest = Math.min(lowest, highest * 1e-6);
+        double[] magnitudes = new double[count];
+        for (int i = 0; i < count; i++)
+            magnitudes[i] = effectiveLowest * Math.pow(highest / effectiveLowest, i / (double) (count - 1));
+        return magnitudes;
     }
 }

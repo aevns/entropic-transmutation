@@ -14,11 +14,17 @@ public final class Params {
      * u = ln(1 + v), i.e. values within this relative difference count as neighbours. Roughly the smallest
      * relative difference in magnitude people reliably notice. Must be positive.
      */
-    public double weberFraction = 0.20;//0.15
+    public double weberFraction = 0.2;//0.15
     /** Prior weight of the null state (count 0, no label), relative to sum_k W_k = 1 for each nonzero count. */
     public double nullStatePrior = 1.0;
-    /** Count prior m(c), c = 1..64 (index 0 ignored). null means m == 1. */
-    public double[] countPrior = null;
+    /**
+     * Same construction as densityExponent, applied to the counts 1..64 along u = ln(count): m(c) ~ rho_c^(-alpha).
+     * 0 = every count equally likely a priori; 1 = counts too close in ratio to tell apart share one unit of weight
+     * (so, e.g., 33 and 34 are not each a separate chance). Must be in [0, 1].
+     */
+    public double countDensityExponent = 1.0;
+    /** Weber fraction for counts (kernel half-width ln(1 + countWeberFraction) in ln(count)). Must be positive. */
+    public double countWeberFraction = 0.15;
     /** Saturation tolerance: the extreme value group must hold at least 1 - tolerance of the mass at the clamp. */
     public double saturationTolerance = 1e-5;
     /** Number of stored target-s rows per supported expected count n. */

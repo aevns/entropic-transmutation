@@ -30,7 +30,7 @@ public final class EmcSampler {
     static ItemInfo[] itemData;
     static double[] itemValues;
     static Params params;
-    static MaxEntSampler sampler;
+    public static MaxEntSampler sampler;
 
     @SubscribeEvent
     static void onEmcRemap(EMCRemapEvent event) {
@@ -40,7 +40,6 @@ public final class EmcSampler {
 
         // We keep using ItemInfo, since it's a reference type anyway
         int size = emcMap.size();
-        LOGGER.info("Creating max entropy sampler for {} items [EMC].", size);
         Integer[] indices = new Integer[size];
         ItemInfo[] unsortedItemData = new ItemInfo[size];
         double[] unsortedItemValues = new double[size];
@@ -49,24 +48,32 @@ public final class EmcSampler {
         int index = 0;
         while (iterator.hasNext()) {
             Object2LongMap.Entry<ItemInfo> entry = iterator.next();
-            indices[index] = index;
-            unsortedItemData[index] = entry.getKey();
-            unsortedItemValues[index] = entry.getLongValue();
-            index++;
+            String modId = entry.getKey().getItem().unwrapKey()
+                    .map(key -> key.location().getNamespace())
+                    .orElse("minecraft");
+            if (true) { //modId.equals("minecraft")) {
+                indices[index] = index;
+                unsortedItemData[index] = entry.getKey();
+                unsortedItemValues[index] = entry.getLongValue();
+                index++;
+            }
         }
-        Arrays.sort(indices, Comparator.comparingDouble(i -> unsortedItemValues[i]));
-        itemData = new ItemInfo[size];
-        itemValues = new double[size];
-        for (int i = 0; i < indices.length; i++) {
+        final int newSize = index;
+        Arrays.sort(indices, 0, newSize, Comparator.comparingDouble(i -> unsortedItemValues[i]));
+        itemData = new ItemInfo[newSize];
+        itemValues = new double[newSize];
+        for (int i = 0; i < newSize; i++) {
             itemData[i] = unsortedItemData[indices[i]];
             itemValues[i] = unsortedItemValues[indices[i]];
         }
 
+        LOGGER.info("Creating max entropy sampler for {} items [EMC].", newSize);
         params = new Params();
         sampler = new MaxEntSampler(itemValues, itemData, params);
+        LOGGER.info("EMC Sampler memory footprint is roughly {} MB.", sampler.approximateMemoryBytes() / (1 << 20));
     }
 
-    static ItemStack SampleItemStack(int countIndex, double meanTotalValue, RandomSource rng) {
+    public static ItemStack SampleItemStack(int countIndex, double meanTotalValue, RandomSource rng) {
         if (itemData == null || itemValues == null || params == null || sampler == null) {
             LOGGER.error("Cannot sample item stack: EMC data has not been remapped.");
             return ItemStack.EMPTY;

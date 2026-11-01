@@ -2,6 +2,9 @@ package aevns.entropictransmutation;
 
 import aevns.entropictransmutation.block.TransmuterAddonBlock;
 import aevns.entropictransmutation.block.TransmuterBlock;
+import aevns.entropictransmutation.block.TransmuterMonitorBlock;
+import aevns.entropictransmutation.block.entity.TransmuterBlockEntity;
+import net.minecraft.world.level.block.SoundType;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -9,15 +12,12 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockBehaviour;
-import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
@@ -32,79 +32,105 @@ import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
-// The value here should match an entry in the META-INF/neoforge.mods.toml file
+import java.util.function.Supplier;
+
 @Mod(EntropicTransmutation.MODID)
 public class EntropicTransmutation {
-    // Define mod id in a common place for everything to reference
     public static final String MODID = "entropictransmutation";
-    // Directly reference a slf4j logger
     public static final Logger LOGGER = LogUtils.getLogger();
-    // Create a Deferred Register to hold Blocks which will all be registered under the "entropictransmutation" namespace
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MODID);
-    // Create a Deferred Register to hold Items which will all be registered under the "entropictransmutation" namespace
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MODID);
-    // Create a Deferred Register to hold CreativeModeTabs which will all be registered under the "entropictransmutation" namespace
-    public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
-
-    // Creates a new Block with the id "entropictransmutation:example_block", combining the namespace and path
-    public static final DeferredBlock<Block> EXAMPLE_BLOCK = BLOCKS.registerSimpleBlock("example_block", BlockBehaviour.Properties.of().mapColor(MapColor.STONE));
-    // Creates a new BlockItem with the id "entropictransmutation:example_block", combining the namespace and path
-    public static final DeferredItem<BlockItem> EXAMPLE_BLOCK_ITEM = ITEMS.registerSimpleBlockItem("example_block", EXAMPLE_BLOCK);
+    public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITY_TYPES =
+            DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, MODID);
+    public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS =
+            DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
 
     // TODO: Move this logic to a utility class or somesuch
-    public static final DeferredBlock<TransmuterBlock> TRANSMUTER = BLOCKS.register(
+    public static final DeferredBlock<TransmuterBlock> TRANSMUTER_BLOCK = BLOCKS.register(
             "transmuter",
-            () -> new TransmuterBlock(BlockBehaviour.Properties.of().noOcclusion().strength(2.0f))
+            () -> new TransmuterBlock(BlockBehaviour.Properties.of()
+                    .noOcclusion()
+                    .lightLevel(state -> 4)
+                    .strength(2.0f)
+                    .sound(SoundType.VAULT)
+            )
     );
     public static final DeferredItem<BlockItem> TRANSMUTER_ITEM = ITEMS.registerSimpleBlockItem(
             "transmuter",
-            TRANSMUTER
+            TRANSMUTER_BLOCK
     );
-    public static final DeferredBlock<TransmuterBlock> TRANSMUTER_MONITOR = BLOCKS.register(
+    @SuppressWarnings("ConstantConditions")
+    public static final Supplier<BlockEntityType<TransmuterBlockEntity>> TRANSMUTER_BLOCK_ENTITY = BLOCK_ENTITY_TYPES.register(
+            "transmuter",
+            () -> BlockEntityType.Builder.of(TransmuterBlockEntity::new, TRANSMUTER_BLOCK.get()).build(null)
+    );
+    public static final DeferredBlock<TransmuterMonitorBlock> TRANSMUTER_MONITOR_BLOCK = BLOCKS.register(
             "transmuter_monitor",
-            () -> new TransmuterBlock(BlockBehaviour.Properties.of().noOcclusion().strength(2.0f))
+            () -> new TransmuterMonitorBlock(BlockBehaviour.Properties.of()
+                    .noOcclusion()
+                    .lightLevel(state -> 4)
+                    .strength(2.0f)
+                    .sound(SoundType.VAULT)
+            )
     );
     public static final DeferredItem<BlockItem> TRANSMUTER_MONITOR_ITEM = ITEMS.registerSimpleBlockItem(
             "transmuter_monitor",
-            TRANSMUTER_MONITOR
+            TRANSMUTER_MONITOR_BLOCK
     );
-
-    public static final DeferredBlock<TransmuterAddonBlock> COUNT_SUPPRESSOR = BLOCKS.register(
+    public static final DeferredBlock<TransmuterAddonBlock> COUNT_SUPPRESSOR_BLOCK = BLOCKS.register(
             "count_suppressor",
-            () -> new TransmuterAddonBlock(BlockBehaviour.Properties.of().noCollission().noOcclusion().strength(2.0f))
+            () -> new TransmuterAddonBlock(BlockBehaviour.Properties.of()
+                    .noCollission()
+                    .noOcclusion()
+                    .lightLevel(state -> 7)
+                    .strength(2.0f)
+                    .sound(SoundType.BAMBOO_WOOD_HANGING_SIGN)
+            )
     );
     public static final DeferredItem<BlockItem> COUNT_SUPPRESSOR_ITEM = ITEMS.registerSimpleBlockItem(
             "count_suppressor",
-            COUNT_SUPPRESSOR
+            COUNT_SUPPRESSOR_BLOCK
     );
-    public static final DeferredBlock<TransmuterAddonBlock> TYPE_SUPPRESSOR = BLOCKS.register(
+    public static final DeferredBlock<TransmuterAddonBlock> TYPE_SUPPRESSOR_BLOCK = BLOCKS.register(
             "type_suppressor",
-            () -> new TransmuterAddonBlock(BlockBehaviour.Properties.of().noCollission().noOcclusion().strength(2.0f))
+            () -> new TransmuterAddonBlock(BlockBehaviour.Properties.of()
+                    .noCollission()
+                    .noOcclusion()
+                    .lightLevel(state -> 7)
+                    .strength(2.0f)
+                    .sound(SoundType.BAMBOO_WOOD_HANGING_SIGN)
+            )
     );
     public static final DeferredItem<BlockItem> TYPE_SUPPRESSOR_ITEM = ITEMS.registerSimpleBlockItem(
             "type_suppressor",
-            TYPE_SUPPRESSOR
+            TYPE_SUPPRESSOR_BLOCK
     );
-    public static final DeferredBlock<TransmuterAddonBlock> VOID_SUPPRESSOR = BLOCKS.register(
+    public static final DeferredBlock<TransmuterAddonBlock> VOID_SUPPRESSOR_BLOCK = BLOCKS.register(
             "void_suppressor",
-            () -> new TransmuterAddonBlock(BlockBehaviour.Properties.of().noCollission().noOcclusion().strength(2.0f))
+            () -> new TransmuterAddonBlock(BlockBehaviour.Properties.of()
+                    .noCollission()
+                    .noOcclusion()
+                    .lightLevel(state -> 7)
+                    .strength(2.0f)
+                    .sound(SoundType.BAMBOO_WOOD_HANGING_SIGN)
+            )
     );
     public static final DeferredItem<BlockItem> VOID_SUPPRESSOR_ITEM = ITEMS.registerSimpleBlockItem(
             "void_suppressor",
-            VOID_SUPPRESSOR
+            VOID_SUPPRESSOR_BLOCK
     );
 
-    // Creates a new food item with the id "entropictransmutation:example_id", nutrition 1 and saturation 2
-    public static final DeferredItem<Item> EXAMPLE_ITEM = ITEMS.registerSimpleItem("example_item", new Item.Properties().food(new FoodProperties.Builder()
-            .alwaysEdible().nutrition(1).saturationModifier(2f).build()));
-
-    // Creates a creative tab with the id "entropictransmutation:example_tab" for the example item, that is placed after the combat tab
-    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> EXAMPLE_TAB = CREATIVE_MODE_TABS.register("example_tab", () -> CreativeModeTab.builder()
+    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> TRANSMUTER_TAB = CREATIVE_MODE_TABS.register("transmuter_tab", () -> CreativeModeTab.builder()
             .title(Component.translatable("itemGroup.entropictransmutation")) //The language key for the title of your CreativeModeTab
             .withTabsBefore(CreativeModeTabs.COMBAT)
-            .icon(() -> EXAMPLE_ITEM.get().getDefaultInstance())
+            .icon(() -> TRANSMUTER_ITEM.get().getDefaultInstance())
             .displayItems((parameters, output) -> {
-                output.accept(EXAMPLE_ITEM.get());// Add the example item to the tab. For your own tabs, this method is preferred over the event
+                output.accept(TRANSMUTER_ITEM.get());// For your own tabs, this method is preferred over the event
+                output.accept(TRANSMUTER_MONITOR_ITEM.get());
+                output.accept(TYPE_SUPPRESSOR_ITEM.get());
+                output.accept(COUNT_SUPPRESSOR_ITEM.get());
+                output.accept(VOID_SUPPRESSOR_ITEM.get());
+
             }).build());
 
     // The constructor for the mod class is the first code that is run when your mod is loaded.
@@ -113,13 +139,10 @@ public class EntropicTransmutation {
         // Register the commonSetup method for modloading
         modEventBus.addListener(this::commonSetup);
 
-        // Register the Deferred Register to the mod event bus so blocks get registered
         BLOCKS.register(modEventBus);
-        // Register the Deferred Register to the mod event bus so items get registered
         ITEMS.register(modEventBus);
-        // Register the Deferred Register to the mod event bus so tabs get registered
         CREATIVE_MODE_TABS.register(modEventBus);
-
+        BLOCK_ENTITY_TYPES.register(modEventBus);
         // Register ourselves for server and other game events we are interested in.
         // Note that this is necessary if and only if we want *this* class (EntropicTransmutation) to respond directly to events.
         // Do not add this line if there are no @SubscribeEvent-annotated functions in this class, like onServerStarting() below.
@@ -148,7 +171,11 @@ public class EntropicTransmutation {
     // Add the example block item to the building blocks tab
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
-            event.accept(EXAMPLE_BLOCK_ITEM);
+            event.accept(TRANSMUTER_ITEM);
+            event.accept(TRANSMUTER_MONITOR_ITEM);
+            event.accept(TYPE_SUPPRESSOR_ITEM);
+            event.accept(COUNT_SUPPRESSOR_ITEM);
+            event.accept(VOID_SUPPRESSOR_ITEM);
         }
     }
 

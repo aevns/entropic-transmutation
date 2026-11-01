@@ -1,7 +1,9 @@
 package aevns.entropictransmutation.block;
 
 import aevns.entropictransmutation.EntropicTransmutation;
+
 import com.mojang.serialization.MapCodec;
+import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -11,51 +13,79 @@ import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock ;
+import net.minecraft.world.level.block.SimpleWaterloggedBlock;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
-
-import javax.annotation.ParametersAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
+import javax.annotation.ParametersAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
+
+import java.util.EnumMap;
+import java.util.Map;
+
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
-public class TransmuterAddonBlock extends HorizontalDirectionalBlock  {
+public class TransmuterAddonBlock extends HorizontalDirectionalBlock  implements SimpleWaterloggedBlock {
 
     public static final MapCodec<TransmuterAddonBlock> CODEC = simpleCodec(TransmuterAddonBlock::new);
+    public static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
+    private static final Map<Direction, VoxelShape> SHAPES = Util.make(new EnumMap<>(Direction.class), map -> {
+        map.put(Direction.NORTH, Block.box(4, 4, 13, 12, 12, 16));
+        map.put(Direction.SOUTH, Block.box(4, 4, 0, 12, 12, 3));
+        map.put(Direction.WEST, Block.box(13, 4, 4, 16, 12, 12));
+        map.put(Direction.EAST, Block.box(0, 4, 4, 3, 12, 12));
+    });
 
     public TransmuterAddonBlock(BlockBehaviour.Properties properties) {
         super(properties);
-        this.registerDefaultState(this.stateDefinition.any().setValue(FACING, Direction.NORTH));
+        this.registerDefaultState(this.stateDefinition.any()
+                .setValue(FACING, Direction.NORTH)
+                .setValue(WATERLOGGED, false)
+        );
     }
 
     @Override
-    public MapCodec<TransmuterAddonBlock> codec() {
-        return CODEC;
-    }
+    public MapCodec<TransmuterAddonBlock> codec() {return CODEC;}
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(FACING);
+        builder.add(WATERLOGGED);
     }
 
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
         Direction facing = context.getClickedFace();
+        boolean waterlogged = context.getLevel().getFluidState(context.getClickedPos()).getType() == Fluids.WATER;
         if (facing.getAxis().isHorizontal()) {
-            return this.defaultBlockState().setValue(FACING, facing);
+            return this.defaultBlockState()
+                    .setValue(FACING, facing)
+                    .setValue(WATERLOGGED, waterlogged);
         }
-        return this.defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+        return this.defaultBlockState()
+                .setValue(FACING, context.getHorizontalDirection().getOpposite())
+                .setValue(WATERLOGGED, waterlogged);
     }
 
     @Override
     protected boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
         Direction facing = state.getValue(FACING);
-        BlockPos attachedPos = pos.relative(facing.getOpposite());
-        BlockState attachedState = level.getBlockState(attachedPos);
-        return attachedState.is(EntropicTransmutation.TRANSMUTER) || attachedState.is(EntropicTransmutation.TRANSMUTER_MONITOR) && (facing != attachedState.getValue(FACING)); // can be a BlockTag
+        BlockState attachedState = level.getBlockState(pos.relative(facing.getOpposite()));
+        boolean validBlock = attachedState.is(EntropicTransmutation.TRANSMUTER_BLOCK); // maybe replace with a blocktag
+        validBlock |= attachedState.is(EntropicTransmutation.TRANSMUTER_MONITOR_BLOCK);
+        return validBlock && (facing != attachedState.getValue(FACING));
+    }
+
+    @Override
+    public FluidState getFluidState(BlockState state) {
+        return state.getValue(WATERLOGGED) ? Fluids.WATER.getSource(false) : super.getFluidState(state);
     }
 
     @Override
@@ -73,18 +103,14 @@ public class TransmuterAddonBlock extends HorizontalDirectionalBlock  {
                 return Blocks.AIR.defaultBlockState();
             }
         }
+        if (state.getValue(WATERLOGGED)) {
+            level.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(level));
+        }
         return super.updateShape(state, direction, neighborState, level, pos, neighborPos);
     }
 
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
-        // In a real class, you would use a switch(state.getValue(FACING))
-        // to return a rotated VoxelShape variation based on how the block faces!
-        return switch (state.getValue(FACING)) {
-            case NORTH -> Block.box(4.0, 4.0, 13.0, 12.0, 12.0, 16.0);
-            case SOUTH -> Block.box(4.0, 4.0, 0.0, 12.0, 12.0, 3.0);
-            case WEST -> Block.box(13.0, 4.0, 4.0, 16.0, 12.0, 12.0);
-            default -> Block.box(0.0, 4.0, 4.0, 3.0, 12.0, 12.0);
-        };
+        return SHAPES.get(state.getValue(FACING));
     }
 }

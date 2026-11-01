@@ -9,18 +9,20 @@ final class CountPrior {
     /**
      * The count weights m(c), c = 1..MAX_COUNT, normalized to mean 1 (so the null-state prior keeps its meaning
      * relative to the label masses, which sum to 1 per count). m(c) ~ rho_c^(-alpha), where rho_c is the kernel
-     * density of the integers 1..MAX_COUNT around c along u = ln c, with half-width ln(1 + countWeberFraction):
-     * counts so close in ratio that they are hard to tell apart share weight, while small counts, which are
-     * distinguishable, keep full weight each. With the default Weber fraction counts 1..6 are fully distinct.
+     * density of the integers 1..MAX_COUNT around c along u = ln(1 + c / countTransitionScale), with half-width
+     * ln(1 + countWeberFraction): counts too close to tell apart share weight, while small counts, which are
+     * distinguishable, keep full weight each. With the defaults counts 1..5 are fully distinct.
      */
     static double[] countWeights(Params params) {
-        DensityPrior.validate(params.countDensityExponent, params.countWeberFraction);
+        DensityPrior.validate(params.countDensityExponent, params.countWeberFraction, params.countTransitionScale);
+        double c0 = params.countTransitionScale;
         // The density is evaluated with the integers continued past MAX_COUNT by one kernel width, so the top counts
         // are not mistaken for uncrowded just because no larger count exists. Only counts 1..MAX_COUNT get weights.
-        int extendedCount = (int) Math.ceil(CountRange.MAX_COUNT * (1 + params.countWeberFraction)) + 1;
+        // A count c' is within the kernel of c = MAX_COUNT when 1 + c'/c0 <= (1 + c/c0)(1 + f).
+        int extendedCount = (int) Math.ceil((c0 + CountRange.MAX_COUNT) * (1 + params.countWeberFraction) - c0) + 1;
         double[] positions = new double[extendedCount];
         int[] ones = new int[extendedCount];
-        for (int i = 0; i < extendedCount; i++) { positions[i] = Math.log(i + 1); ones[i] = 1; }
+        for (int i = 0; i < extendedCount; i++) { positions[i] = Math.log1p((i + 1) / c0); ones[i] = 1; }
         double[] extendedWeights = DensityPrior.weights(positions, ones, params.countDensityExponent,
                 Math.log1p(params.countWeberFraction));
         double[] weights = Arrays.copyOf(extendedWeights, CountRange.MAX_COUNT);

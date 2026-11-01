@@ -13,7 +13,9 @@ package aevns.entropictransmutation.samplers.maxent;
 final class DensityPrior {
     private DensityPrior() {}
 
-    static void validate(double densityExponent, double weberFraction) {
+    static void validate(double densityExponent, double weberFraction, double transitionScale) {
+        if (!(transitionScale > 0) || Double.isInfinite(transitionScale))
+            throw new IllegalArgumentException("transition scale must be positive and finite");
         if (!(densityExponent >= 0 && densityExponent <= 1))
             throw new IllegalArgumentException("density exponent must be in [0, 1]");
         if (!(weberFraction > 0) || Double.isInfinite(weberFraction))

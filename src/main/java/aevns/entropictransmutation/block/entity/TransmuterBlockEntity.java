@@ -130,14 +130,18 @@ public class TransmuterBlockEntity extends BlockEntity {
         this.transmutationTime = -1;
         if (level != null && !isInputEmpty() && isOutputEmpty()) {
             double value = inputSlot.getStackInSlot(0).getCount() * IEMCProxy.INSTANCE.getValue(inputSlot.getStackInSlot(0));
-            EntropicTransmutation.LOGGER.info("Transmuting with {} EMC", min(EmcSampler.sampler.maxTargetS(1), value));
             if (value > 0)
             {
+                long startTime = System.nanoTime();
                 inputSlot.setStackInSlot(0, ItemStack.EMPTY);
-                outputSlots.setStackInSlot(0, EmcSampler.SampleItemStack(0, value, rng));
-                //outputSlots.setStackInSlot(1, EmcSampler.SampleItemStack(3, value / 4.0, rng));
-                //outputSlots.setStackInSlot(2, EmcSampler.SampleItemStack(3, value / 4.0, rng));
-                //outputSlots.setStackInSlot(3, EmcSampler.SampleItemStack(3, value / 4.0, rng));
+                outputSlots.setStackInSlot(0, EmcSampler.SampleItemStack(0, value / 4.0, rng));
+                outputSlots.setStackInSlot(1, EmcSampler.SampleItemStack(0, value / 4.0, rng));
+                outputSlots.setStackInSlot(2, EmcSampler.SampleItemStack(0, value / 4.0, rng));
+                outputSlots.setStackInSlot(3, EmcSampler.SampleItemStack(0, value / 4.0, rng));
+                long endTime = System.nanoTime();
+                long durationNs = endTime - startTime;
+                double durationMs = durationNs / 1_000.0;
+                EntropicTransmutation.LOGGER.info("Time spent transmuting: {} μs", durationMs);
             }
             if (isOutputEmpty()) {
                 level.playSound(null, getBlockPos(), SoundEvents.VAULT_REJECT_REWARDED_PLAYER, SoundSource.BLOCKS, 0.125f, rng.nextFloat() * 0.4f + 0.8f);

@@ -5,6 +5,8 @@ import aevns.entropictransmutation.block.TransmuterBlock;
 import aevns.entropictransmutation.block.TransmuterMonitorBlock;
 import aevns.entropictransmutation.block.entity.TransmuterBlockEntity;
 import net.minecraft.world.level.block.SoundType;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -150,6 +152,7 @@ public class EntropicTransmutation {
 
         // Register the item to a creative tab
         modEventBus.addListener(this::addCreative);
+        modEventBus.addListener(this::registerCapabilities);
 
         // Register our mod's ModConfigSpec so that FML can create and load the config file for us
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
@@ -177,6 +180,14 @@ public class EntropicTransmutation {
             event.accept(COUNT_SUPPRESSOR_ITEM);
             event.accept(VOID_SUPPRESSOR_ITEM);
         }
+    }
+
+    private void registerCapabilities(RegisterCapabilitiesEvent event) {
+        event.registerBlockEntity(
+                Capabilities.ItemHandler.BLOCK,
+                TRANSMUTER_BLOCK_ENTITY.get(),
+                (be, side) -> be.getAutomationHandler()
+        );
     }
 
     // You can use SubscribeEvent and let the Event Bus discover methods to call

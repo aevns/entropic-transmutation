@@ -48,7 +48,7 @@ public class TransmuterBlock extends HorizontalDirectionalBlock implements Entit
     private static final VoxelShape NORTH_SHAPE = Shapes.or(
             Block.box(0, 0, 0, 16, 11, 16),
             Block.box(0, 11, 4, 16, 16, 16)
-    );
+    ).optimize();
     private static final Map<Direction, VoxelShape> SHAPES = Util.make(new EnumMap<>(Direction.class), map -> {
         VoxelShape shape = NORTH_SHAPE;
         for (Direction dir : new Direction[]{Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST}) {
@@ -105,13 +105,6 @@ public class TransmuterBlock extends HorizontalDirectionalBlock implements Entit
     }
 
     @Override
-    public void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource rng) {
-        if (level.getBlockEntity(pos) instanceof TransmuterBlockEntity transmuter) {
-            transmuter.transmute(rng);
-        }
-    }
-
-    @Override
     protected ItemInteractionResult useItemOn(
             ItemStack stack,
             BlockState state,
@@ -142,10 +135,39 @@ public class TransmuterBlock extends HorizontalDirectionalBlock implements Entit
             BlockPos pos,
             Player player,
             BlockHitResult hitResult) {
-        if (level.getBlockEntity(pos) instanceof TransmuterBlockEntity transmuter && !transmuter.isOutputEmpty()) {
-            if (!level.isClientSide()) {
-                for (int i = 0; i < transmuter.outputSlots.getSlots(); i++) {
-                    ItemStack extracted = transmuter.outputSlots.extractItem(i, 64, false);
+        if (level.getBlockEntity(pos) instanceof TransmuterBlockEntity transmuter) {
+            if (!transmuter.isOutputEmpty()) {
+                if (!level.isClientSide()) {
+                    for (int i = 0; i < transmuter.outputSlots.getSlots(); i++) {
+                        ItemStack extracted = transmuter.outputSlots.extractItem(i, 64, false);
+                        if (!extracted.isEmpty()) {
+                            player.getInventory().add(extracted);
+                            if (!extracted.isEmpty()) {
+                                ItemEntity itemEntity = new ItemEntity(
+                                        level,
+                                        pos.getX() + 0.5,
+                                        pos.getY() + 0.5,
+                                        pos.getZ() + 0.5,
+                                        extracted
+                                );
+                                Vec3 velocity = new Vec3(
+                                        (level.random.nextDouble() - 0.5),
+                                        level.random.nextDouble() + 0.1,
+                                        (level.random.nextDouble() - 0.5)
+                                );
+                                velocity = velocity.add(Vec3.atLowerCornerOf(state.getValue(FACING).getNormal()));
+                                itemEntity.setDeltaMovement(velocity);
+                                itemEntity.setDefaultPickUpDelay();
+                                level.addFreshEntity(itemEntity);
+                            }
+                        }
+                    }
+                }
+                level.playSound(player, pos, SoundEvents.VAULT_EJECT_ITEM, SoundSource.BLOCKS, 0.25f, level.getRandom().nextFloat() * 0.2f + 0.9f);
+                return InteractionResult.SUCCESS_NO_ITEM_USED;
+            } else if (!transmuter.isInputEmpty()) {
+                if (!level.isClientSide()) {
+                    ItemStack extracted = transmuter.inputSlot.extractItem(0, 64, false);
                     if (!extracted.isEmpty()) {
                         player.getInventory().add(extracted);
                         if (!extracted.isEmpty()) {
@@ -168,16 +190,23 @@ public class TransmuterBlock extends HorizontalDirectionalBlock implements Entit
                         }
                     }
                 }
+                level.playSound(player, pos, SoundEvents.VAULT_INSERT_ITEM_FAIL, SoundSource.BLOCKS, 0.25f, level.getRandom().nextFloat() * 0.2f + 0.9f);
+                return InteractionResult.SUCCESS_NO_ITEM_USED;
             }
-            level.playSound(player, pos, SoundEvents.VAULT_EJECT_ITEM, SoundSource.BLOCKS, 0.25f, level.getRandom().nextFloat() * 0.2f + 0.9f);
-            return InteractionResult.SUCCESS_NO_ITEM_USED;
         }
         return InteractionResult.PASS;
     }
 
-    public void scheduleTransmutation(Level level, BlockPos pos) {
+    @Override
+    public void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource rng) {
+        if (level.getBlockEntity(pos) instanceof TransmuterBlockEntity transmuter) {
+            transmuter.transmute(rng);
+        }
+    }
+
+    public void scheduleTransmutation(Level level, BlockPos pos, int delay) {
         if (!level.isClientSide) {
-            level.scheduleTick(pos, this, TransmuterBlockEntity.MAX_TRANSMUTATION_TIME);
+            level.scheduleTick(pos, this, delay);
         }
     }
 }

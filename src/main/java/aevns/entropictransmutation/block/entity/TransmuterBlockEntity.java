@@ -34,7 +34,7 @@ public class TransmuterBlockEntity extends BlockEntity {
         @Override
         protected void onContentsChanged(int slot) {
             if (getLevel() != null && !getLevel().isClientSide) {
-                attemptTransmutation();
+                attemptTransmutation(true);
                 setChanged();
                 getLevel().sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), 2);
             }
@@ -44,7 +44,7 @@ public class TransmuterBlockEntity extends BlockEntity {
         @Override
         protected void onContentsChanged(int slot) {
             if (getLevel() != null && !getLevel().isClientSide) {
-                attemptTransmutation();
+                attemptTransmutation(true);
                 setChanged();
                 getLevel().sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), 2);
             }
@@ -88,8 +88,8 @@ public class TransmuterBlockEntity extends BlockEntity {
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = super.getUpdateTag(registries);
         tag.putLong("TransmutationTime", transmutationTime);
-        tag.put("InputSlot", this.inputSlot.serializeNBT(registries));
-        tag.put("OutputSlots", this.outputSlots.serializeNBT(registries));
+        tag.put("InputSlot", inputSlot.serializeNBT(registries));
+        tag.put("OutputSlots", outputSlots.serializeNBT(registries));
         return tag;
     }
 
@@ -99,10 +99,10 @@ public class TransmuterBlockEntity extends BlockEntity {
         CompoundTag tag = packet.getTag();
         transmutationTime = tag.getLong("TransmutationTime");
         if (tag.contains("InputSlot")) {
-            this.inputSlot.deserializeNBT(registries, tag.getCompound("InputSlot"));
+            inputSlot.deserializeNBT(registries, tag.getCompound("InputSlot"));
         }
         if (tag.contains("OutputSlots")) {
-            this.outputSlots.deserializeNBT(registries, tag.getCompound("OutputSlots"));
+            outputSlots.deserializeNBT(registries, tag.getCompound("OutputSlots"));
         }
     }
 
@@ -117,37 +117,42 @@ public class TransmuterBlockEntity extends BlockEntity {
                 && outputSlots.getStackInSlot(3).isEmpty();
     }
 
-    protected void attemptTransmutation() {
+    protected void attemptTransmutation(boolean resetTimer) {
         if (level != null && !isInputEmpty() && isOutputEmpty()) {
-            transmutationTime = level.getGameTime() + MAX_TRANSMUTATION_TIME;
+            if (resetTimer) {
+                transmutationTime = level.getGameTime() + MAX_TRANSMUTATION_TIME;
+            }
             if (getBlockState().getBlock() instanceof TransmuterBlock transmuterBlock) {
-                transmuterBlock.scheduleTransmutation(this.level, this.worldPosition);
+                transmuterBlock.scheduleTransmutation(level, worldPosition, (int) (transmutationTime - level.getGameTime()));
             }
         }
     }
 
     public void transmute(RandomSource rng) {
-        this.transmutationTime = -1;
-        if (level != null && !isInputEmpty() && isOutputEmpty()) {
-            double value = inputSlot.getStackInSlot(0).getCount() * IEMCProxy.INSTANCE.getValue(inputSlot.getStackInSlot(0));
-            if (value > 0)
-            {
-                long startTime = System.nanoTime();
-                inputSlot.setStackInSlot(0, ItemStack.EMPTY);
-                outputSlots.setStackInSlot(0, EmcSampler.SampleItemStack(0, value / 4.0, rng));
-                outputSlots.setStackInSlot(1, EmcSampler.SampleItemStack(0, value / 4.0, rng));
-                outputSlots.setStackInSlot(2, EmcSampler.SampleItemStack(0, value / 4.0, rng));
-                outputSlots.setStackInSlot(3, EmcSampler.SampleItemStack(0, value / 4.0, rng));
-                long endTime = System.nanoTime();
-                long durationNs = endTime - startTime;
-                double durationMs = durationNs / 1_000.0;
-                EntropicTransmutation.LOGGER.info("Time spent transmuting: {} μs", durationMs);
-            }
-            if (isOutputEmpty()) {
-                level.playSound(null, getBlockPos(), SoundEvents.VAULT_REJECT_REWARDED_PLAYER, SoundSource.BLOCKS, 0.125f, rng.nextFloat() * 0.4f + 0.8f);
-            } else {
-                level.playSound(null, getBlockPos(), SoundEvents.VAULT_OPEN_SHUTTER, SoundSource.BLOCKS, 0.5f, rng.nextFloat() * 0.2f + 0.9f);
-            }
+        if (level == null || isInputEmpty() || !isOutputEmpty()) return;
+        if (level.getGameTime() < transmutationTime) {
+            attemptTransmutation(false);
+            return;
+        }
+        transmutationTime = -1;
+        double value = inputSlot.getStackInSlot(0).getCount() * IEMCProxy.INSTANCE.getSellValue(inputSlot.getStackInSlot(0));
+        if (value > 0)
+        {
+            long startTime = System.nanoTime();
+            inputSlot.setStackInSlot(0, ItemStack.EMPTY);
+            outputSlots.setStackInSlot(0, EmcSampler.SampleItemStack(0, value / 4.0, rng));
+            outputSlots.setStackInSlot(1, EmcSampler.SampleItemStack(0, value / 4.0, rng));
+            outputSlots.setStackInSlot(2, EmcSampler.SampleItemStack(0, value / 4.0, rng));
+            outputSlots.setStackInSlot(3, EmcSampler.SampleItemStack(0, value / 4.0, rng));
+            long endTime = System.nanoTime();
+            long durationNs = endTime - startTime;
+            double durationMs = durationNs / 1_000.0;
+            EntropicTransmutation.LOGGER.info("Time spent transmuting: {} μs", durationMs);
+        }
+        if (isOutputEmpty()) {
+            level.playSound(null, getBlockPos(), SoundEvents.VAULT_REJECT_REWARDED_PLAYER, SoundSource.BLOCKS, 0.125f, rng.nextFloat() * 0.4f + 0.8f);
+        } else {
+            level.playSound(null, getBlockPos(), SoundEvents.VAULT_OPEN_SHUTTER, SoundSource.BLOCKS, 0.5f, rng.nextFloat() * 0.2f + 0.9f);
         }
     }
 }

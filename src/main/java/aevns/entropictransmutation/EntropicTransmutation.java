@@ -188,6 +188,15 @@ public class EntropicTransmutation {
                 TRANSMUTER_BLOCK_ENTITY.get(),
                 (be, side) -> be.getAutomationHandler()
         );
+        // The monitor has no inventory of its own; automation is handled by the transmuter below it
+        event.registerBlock(
+                Capabilities.ItemHandler.BLOCK,
+                (level, pos, state, be, side) ->
+                        level.getBlockEntity(pos.below()) instanceof TransmuterBlockEntity transmuter
+                                ? transmuter.getAutomationHandler()
+                                : null,
+                TRANSMUTER_MONITOR_BLOCK.get()
+        );
     }
 
     // You can use SubscribeEvent and let the Event Bus discover methods to call

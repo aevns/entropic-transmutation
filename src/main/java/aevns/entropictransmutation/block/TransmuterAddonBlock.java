@@ -3,7 +3,6 @@ package aevns.entropictransmutation.block;
 import aevns.entropictransmutation.EntropicTransmutation;
 
 import com.mojang.serialization.MapCodec;
-import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -27,7 +26,6 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import javax.annotation.ParametersAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 
-import java.util.EnumMap;
 import java.util.Map;
 
 @ParametersAreNonnullByDefault
@@ -36,12 +34,8 @@ public class TransmuterAddonBlock extends HorizontalDirectionalBlock  implements
 
     public static final MapCodec<TransmuterAddonBlock> CODEC = simpleCodec(TransmuterAddonBlock::new);
     public static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
-    private static final Map<Direction, VoxelShape> SHAPES = Util.make(new EnumMap<>(Direction.class), map -> {
-        map.put(Direction.NORTH, Block.box(4, 4, 13, 12, 12, 16));
-        map.put(Direction.SOUTH, Block.box(4, 4, 0, 12, 12, 3));
-        map.put(Direction.WEST, Block.box(13, 4, 4, 16, 12, 12));
-        map.put(Direction.EAST, Block.box(0, 4, 4, 3, 12, 12));
-    });
+    private static final VoxelShape NORTH_SHAPE = Block.box(4, 4, 13, 12, 12, 16);
+    private static final Map<Direction, VoxelShape> SHAPES = TransmuterBlock.rotations(NORTH_SHAPE);
 
     public TransmuterAddonBlock(BlockBehaviour.Properties properties) {
         super(properties);

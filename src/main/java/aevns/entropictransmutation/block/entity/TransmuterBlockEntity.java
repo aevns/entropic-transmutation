@@ -1,10 +1,16 @@
 package aevns.entropictransmutation.block.entity;
 
 import aevns.entropictransmutation.EntropicTransmutation;
+import aevns.entropictransmutation.block.TransmuterAddonBlock;
+import aevns.entropictransmutation.block.TransmuterBlock;
 import aevns.entropictransmutation.samplers.EmcSampler;
+import aevns.entropictransmutation.samplers.maxent.MaxEntSampler;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import moze_intel.projecte.api.proxy.IEMCProxy;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
@@ -29,6 +35,8 @@ import java.util.List;
 public class TransmuterBlockEntity extends BlockEntity {
     public static final int MAX_TRANSMUTATION_TIME = 30;
     private static final int OUTPUT_COUNT = 4;
+    /** Index into MaxEntSampler.SUPPORTED_EXPECTED_COUNTS used with no count suppressors: the largest stacks. */
+    private static final int DEFAULT_COUNT_INDEX = MaxEntSampler.SUPPORTED_EXPECTED_COUNTS.length - 1;
 
     /** Game time at which the current input transmutes, or -1 if no timer is running. */
     private long transmutationTime = -1;
@@ -115,6 +123,21 @@ public class TransmuterBlockEntity extends BlockEntity {
         return automationHandler;
     }
 
+    /**
+     * How many of each addon block are attached to the sides or back of this transmuter, or to the sides or back of
+     * a monitor above it. Absent addons map to 0. Checked on demand, so it always reflects the current world state.
+     */
+    public Object2IntMap<Block> getAttachedAddons() {
+        Object2IntMap<Block> addons = new Object2IntOpenHashMap<>();
+        if (level == null) return addons;
+        collectAttachedAddons(worldPosition, addons);
+        BlockPos monitorPos = worldPosition.above();
+        if (level.getBlockState(monitorPos).is(EntropicTransmutation.TRANSMUTER_MONITOR_BLOCK)) {
+            collectAttachedAddons(monitorPos, addons);
+        }
+        return addons;
+    }
+
     /** Players may only insert into a completely idle machine. Safe to call on either side. */
     public boolean canAcceptFromPlayer(ItemStack stack) {
         return isInputEmpty() && isOutputEmpty() && inputSlot.isItemValid(0, stack);
@@ -153,14 +176,23 @@ public class TransmuterBlockEntity extends BlockEntity {
         }
         transmutationTime = -1;
 
+        Object2IntMap<Block> addons = getAttachedAddons();
+        // Each type suppressor removes one sample, down to a single sample
+        int sampleCount = Math.max(1, OUTPUT_COUNT - addons.getInt(EntropicTransmutation.TYPE_SUPPRESSOR_BLOCK.get()));
+        // Each count suppressor divides the expected stack size by 4, down to the smallest supported
+        int countIndex = Math.max(0, DEFAULT_COUNT_INDEX - addons.getInt(EntropicTransmutation.COUNT_SUPPRESSOR_BLOCK.get()));
+        // Each void suppressor halves the chance of sampling at all, and doubles the share when it does happen
+        int voidMultiplier = 1 << addons.getInt(EntropicTransmutation.VOID_SUPPRESSOR_BLOCK.get());
+
         ItemStack input = inputSlot.getStackInSlot(0);
-        double share = input.getCount() * (double) IEMCProxy.INSTANCE.getSellValue(input) / OUTPUT_COUNT;
+        double share = input.getCount() * (double) IEMCProxy.INSTANCE.getSellValue(input) * voidMultiplier / sampleCount;
         if (share > 0) {
+            boolean sampling = rng.nextInt(voidMultiplier) == 0;
             batching = true;
             try {
                 inputSlot.setStackInSlot(0, ItemStack.EMPTY);
-                for (int i = 0; i < OUTPUT_COUNT; i++) {
-                    outputSlots.setStackInSlot(i, EmcSampler.SampleItemStack(0, share, rng));
+                for (int i = 0; sampling && i < sampleCount; i++) {
+                    outputSlots.setStackInSlot(i, EmcSampler.SampleItemStack(countIndex, share, rng));
                 }
             } finally {
                 batching = false;
@@ -183,6 +215,21 @@ public class TransmuterBlockEntity extends BlockEntity {
 
     private static boolean hasPositiveSellValue(ItemStack stack) {
         return !stack.isEmpty() && IEMCProxy.INSTANCE.getSellValue(stack) > 0;
+    }
+
+    /** Counts addons mounted on the horizontal faces of pos, other than the front, into addons. */
+    private void collectAttachedAddons(BlockPos pos, Object2IntMap<Block> addons) {
+        // The monitor always shares the transmuter's facing, so the same front applies to both
+        Direction front = getBlockState().getValue(TransmuterBlock.FACING);
+        for (Direction side : Direction.Plane.HORIZONTAL) {
+            if (side == front) continue;
+            BlockState neighbor = level.getBlockState(pos.relative(side));
+            // An addon faces away from the block it's mounted on
+            if (neighbor.getBlock() instanceof TransmuterAddonBlock
+                    && neighbor.getValue(TransmuterAddonBlock.FACING) == side) {
+                addons.mergeInt(neighbor.getBlock(), 1, Integer::sum);
+            }
+        }
     }
 
     private List<ItemStack> drain(ItemStackHandler handler) {

@@ -56,7 +56,8 @@ public class TransmuterBlock extends HorizontalDirectionalBlock implements Entit
     ).optimize();
     private static final Map<Direction, VoxelShape> SUPPORT_SHAPES = rotations(NORTH_SUPPORT_SHAPE);
 
-    private static Map<Direction, VoxelShape> rotations(VoxelShape north) {
+    /** Shapes for each horizontal facing, built by rotating the north-facing shape. Shared with the other transmuter blocks. */
+    static Map<Direction, VoxelShape> rotations(VoxelShape north) {
         return Util.make(new EnumMap<>(Direction.class), map -> {
             VoxelShape shape = north;
             for (Direction dir : new Direction[]{Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST}) {

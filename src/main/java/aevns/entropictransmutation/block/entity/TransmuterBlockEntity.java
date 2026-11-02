@@ -1,15 +1,12 @@
 package aevns.entropictransmutation.block.entity;
 
 import aevns.entropictransmutation.EntropicTransmutation;
-
-
-import aevns.entropictransmutation.block.TransmuterBlock;
 import aevns.entropictransmutation.samplers.EmcSampler;
 import moze_intel.projecte.api.proxy.IEMCProxy;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
@@ -17,45 +14,56 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-
+import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemStackHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
+import java.util.ArrayList;
+import java.util.List;
 
-import static java.lang.Math.min;
-
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 public class TransmuterBlockEntity extends BlockEntity {
     public static final int MAX_TRANSMUTATION_TIME = 30;
+    private static final int OUTPUT_COUNT = 4;
+
+    /** Game time at which the current input transmutes, or -1 if no timer is running. */
     private long transmutationTime = -1;
-    public final ItemStackHandler inputSlot = new ItemStackHandler(1) {
+    /** Suppresses per-slot notifications during multi-slot changes. */
+    private boolean batching = false;
+
+    private final ItemStackHandler inputSlot = new ItemStackHandler(1) {
         @Override
         protected void onContentsChanged(int slot) {
-            if (getLevel() != null && !getLevel().isClientSide) {
-                attemptTransmutation(true);
-                setChanged();
-                getLevel().sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), 2);
-            }
+            onInventoryChanged();
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return hasPositiveSellValue(stack);
         }
     };
-    public final ItemStackHandler outputSlots = new ItemStackHandler(4) {
+
+    private final ItemStackHandler outputSlots = new ItemStackHandler(OUTPUT_COUNT) {
         @Override
         protected void onContentsChanged(int slot) {
-            if (getLevel() != null && !getLevel().isClientSide) {
-                attemptTransmutation(true);
-                setChanged();
-                getLevel().sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), 2);
-            }
+            onInventoryChanged();
         }
     };
+
+    private final IItemHandler automationHandler = new AutomationHandler();
 
     public TransmuterBlockEntity(BlockPos pos, BlockState state) {
         super(EntropicTransmutation.TRANSMUTER_BLOCK_ENTITY.get(), pos, state);
     }
 
-    @ParametersAreNonnullByDefault
+    // ------------------------------------------------------------------
+    // Persistence & sync
+    // ------------------------------------------------------------------
+
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
@@ -64,95 +72,198 @@ public class TransmuterBlockEntity extends BlockEntity {
         tag.put("OutputSlots", outputSlots.serializeNBT(registries));
     }
 
-    @ParametersAreNonnullByDefault
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        transmutationTime = tag.getLong("TransmutationTime");
+        transmutationTime = tag.contains("TransmutationTime") ? tag.getLong("TransmutationTime") : -1;
         if (tag.contains("InputSlot")) {
             inputSlot.deserializeNBT(registries, tag.getCompound("InputSlot"));
         }
         if (tag.contains("OutputSlots")) {
             outputSlots.deserializeNBT(registries, tag.getCompound("OutputSlots"));
         }
+    }
+
+    @Override
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        return saveCustomOnly(registries);
     }
 
     @Override
     public Packet<ClientGamePacketListener> getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
     }
+    // NeoForge's default onDataPacket calls loadWithComponents -> loadAdditional, so no override needed.
 
-    @MethodsReturnNonnullByDefault
-    @ParametersAreNonnullByDefault
-    @Override
-    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-        CompoundTag tag = super.getUpdateTag(registries);
-        tag.putLong("TransmutationTime", transmutationTime);
-        tag.put("InputSlot", inputSlot.serializeNBT(registries));
-        tag.put("OutputSlots", outputSlots.serializeNBT(registries));
-        return tag;
-    }
-
-    @ParametersAreNonnullByDefault
-    @Override
-    public void onDataPacket(Connection connection, ClientboundBlockEntityDataPacket packet, HolderLookup.Provider registries) {
-        CompoundTag tag = packet.getTag();
-        transmutationTime = tag.getLong("TransmutationTime");
-        if (tag.contains("InputSlot")) {
-            inputSlot.deserializeNBT(registries, tag.getCompound("InputSlot"));
-        }
-        if (tag.contains("OutputSlots")) {
-            outputSlots.deserializeNBT(registries, tag.getCompound("OutputSlots"));
-        }
-    }
+    // ------------------------------------------------------------------
+    // Public API
+    // ------------------------------------------------------------------
 
     public boolean isInputEmpty() {
         return inputSlot.getStackInSlot(0).isEmpty();
     }
 
     public boolean isOutputEmpty() {
-        return outputSlots.getStackInSlot(0).isEmpty()
-                && outputSlots.getStackInSlot(1).isEmpty()
-                && outputSlots.getStackInSlot(2).isEmpty()
-                && outputSlots.getStackInSlot(3).isEmpty();
-    }
-
-    protected void attemptTransmutation(boolean resetTimer) {
-        if (level != null && !isInputEmpty() && isOutputEmpty()) {
-            if (resetTimer) {
-                transmutationTime = level.getGameTime() + MAX_TRANSMUTATION_TIME;
-            }
-            if (getBlockState().getBlock() instanceof TransmuterBlock transmuterBlock) {
-                transmuterBlock.scheduleTransmutation(level, worldPosition, (int) (transmutationTime - level.getGameTime()));
-            }
+        for (int i = 0; i < outputSlots.getSlots(); i++) {
+            if (!outputSlots.getStackInSlot(i).isEmpty()) return false;
         }
+        return true;
     }
 
+    /** Handler exposed to hoppers/pipes: slot 0 is insert-only input, slots 1..4 are extract-only outputs. */
+    public IItemHandler getAutomationHandler() {
+        return automationHandler;
+    }
+
+    /** Players may only insert into a completely idle machine. Safe to call on either side. */
+    public boolean canAcceptFromPlayer(ItemStack stack) {
+        return isInputEmpty() && isOutputEmpty() && inputSlot.isItemValid(0, stack);
+    }
+
+    /** Server only. Returns the remainder of the stack that didn't fit. */
+    public ItemStack insertFromPlayer(ItemStack stack) {
+        if (!canAcceptFromPlayer(stack)) return stack;
+        return inputSlot.insertItem(0, stack, false);
+    }
+
+    /**
+     * Server only. Removes the outputs if any exist, otherwise the input.
+     * Stacks are returned whole and may exceed their max stack size.
+     */
+    public List<ItemStack> takeContents() {
+        List<ItemStack> taken = drain(!isOutputEmpty() ? outputSlots : inputSlot);
+        if (!taken.isEmpty()) onInventoryChanged();
+        return taken;
+    }
+
+    /** Server only. Empties every slot without syncing; used when the block is broken. */
+    public List<ItemStack> removeAllContents() {
+        List<ItemStack> all = drain(inputSlot);
+        all.addAll(drain(outputSlots));
+        transmutationTime = -1;
+        return all;
+    }
+
+    /** Called from the block's scheduled tick. */
     public void transmute(RandomSource rng) {
         if (level == null || isInputEmpty() || !isOutputEmpty()) return;
-        if (level.getGameTime() < transmutationTime) {
-            attemptTransmutation(false);
+        if (transmutationTime >= 0 && level.getGameTime() < transmutationTime) {
+            scheduleTick(); // an older tick fired early, e.g. after remove + re-insert
             return;
         }
         transmutationTime = -1;
-        double value = inputSlot.getStackInSlot(0).getCount() * IEMCProxy.INSTANCE.getSellValue(inputSlot.getStackInSlot(0));
-        if (value > 0)
-        {
-            long startTime = System.nanoTime();
-            inputSlot.setStackInSlot(0, ItemStack.EMPTY);
-            outputSlots.setStackInSlot(0, EmcSampler.SampleItemStack(0, value / 4.0, rng));
-            outputSlots.setStackInSlot(1, EmcSampler.SampleItemStack(0, value / 4.0, rng));
-            outputSlots.setStackInSlot(2, EmcSampler.SampleItemStack(0, value / 4.0, rng));
-            outputSlots.setStackInSlot(3, EmcSampler.SampleItemStack(0, value / 4.0, rng));
-            long endTime = System.nanoTime();
-            long durationNs = endTime - startTime;
-            double durationMs = durationNs / 1_000.0;
-            EntropicTransmutation.LOGGER.info("Time spent transmuting: {} μs", durationMs);
+
+        ItemStack input = inputSlot.getStackInSlot(0);
+        double share = input.getCount() * (double) IEMCProxy.INSTANCE.getSellValue(input) / OUTPUT_COUNT;
+        if (share > 0) {
+            batching = true;
+            try {
+                inputSlot.setStackInSlot(0, ItemStack.EMPTY);
+                for (int i = 0; i < OUTPUT_COUNT; i++) {
+                    outputSlots.setStackInSlot(i, EmcSampler.SampleItemStack(0, share, rng));
+                }
+            } finally {
+                batching = false;
+            }
+            markDirtyAndSync();
         }
+
         if (isOutputEmpty()) {
-            level.playSound(null, getBlockPos(), SoundEvents.VAULT_REJECT_REWARDED_PLAYER, SoundSource.BLOCKS, 0.125f, rng.nextFloat() * 0.4f + 0.8f);
+            level.playSound(null, worldPosition, SoundEvents.VAULT_REJECT_REWARDED_PLAYER, SoundSource.BLOCKS,
+                    0.125f, rng.nextFloat() * 0.4f + 0.8f);
         } else {
-            level.playSound(null, getBlockPos(), SoundEvents.VAULT_OPEN_SHUTTER, SoundSource.BLOCKS, 0.5f, rng.nextFloat() * 0.2f + 0.9f);
+            level.playSound(null, worldPosition, SoundEvents.VAULT_OPEN_SHUTTER, SoundSource.BLOCKS,
+                    0.5f, rng.nextFloat() * 0.2f + 0.9f);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Internals
+    // ------------------------------------------------------------------
+
+    private static boolean hasPositiveSellValue(ItemStack stack) {
+        return !stack.isEmpty() && IEMCProxy.INSTANCE.getSellValue(stack) > 0;
+    }
+
+    private List<ItemStack> drain(ItemStackHandler handler) {
+        List<ItemStack> out = new ArrayList<>();
+        batching = true;
+        try {
+            for (int i = 0; i < handler.getSlots(); i++) {
+                ItemStack stack = handler.getStackInSlot(i);
+                if (!stack.isEmpty()) {
+                    out.add(stack);
+                    handler.setStackInSlot(i, ItemStack.EMPTY);
+                }
+            }
+        } finally {
+            batching = false;
+        }
+        return out;
+    }
+
+    private void onInventoryChanged() {
+        if (batching || level == null || level.isClientSide) return;
+        updateTimer();
+        markDirtyAndSync();
+    }
+
+    /** Starts the timer when the input becomes non-empty; top-ups don't reset it. */
+    private void updateTimer() {
+        if (isInputEmpty() || !isOutputEmpty()) {
+            transmutationTime = -1;
+            return;
+        }
+        if (transmutationTime < 0) {
+            transmutationTime = level.getGameTime() + MAX_TRANSMUTATION_TIME;
+            scheduleTick();
+        }
+    }
+
+    private void scheduleTick() {
+        if (level == null || level.isClientSide) return;
+        int delay = (int) Math.max(1, transmutationTime - level.getGameTime());
+        level.scheduleTick(worldPosition, getBlockState().getBlock(), delay);
+    }
+
+    private void markDirtyAndSync() {
+        if (level == null) return;
+        setChanged();
+        level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
+    }
+
+    private class AutomationHandler implements IItemHandler {
+        @Override
+        public int getSlots() {
+            return 1 + OUTPUT_COUNT;
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return slot == 0 ? inputSlot.getStackInSlot(0) : outputSlots.getStackInSlot(slot - 1);
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            // Automation may top up the input, but only while there's no pending output.
+            if (slot != 0 || !isOutputEmpty()) return stack;
+            return inputSlot.insertItem(0, stack, simulate);
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            if (slot == 0) return ItemStack.EMPTY;
+            return outputSlots.extractItem(slot - 1, amount, simulate);
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return slot == 0 ? inputSlot.getSlotLimit(0) : outputSlots.getSlotLimit(slot - 1);
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return slot == 0 && inputSlot.isItemValid(0, stack);
         }
     }
 }

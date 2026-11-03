@@ -5,3 +5,8 @@ src/generated/**/.cache/* text eol=lf
 src/generated/**/*.json text eol=lf
 
 * text eol=lf
+
+# Binary files must not be line-ending converted; PNG headers contain a CRLF
+*.png binary
+*.jar binary
+*.ogg binary

@@ -184,8 +184,20 @@ public class TransmuterScreen extends AbstractContainerScreen<TransmuterMenu> {
         return List.of(
                 Component.translatable(heading, addon.block.get().getName(), count).withStyle(addon.tooltipColor),
                 Component.translatable(addon.key() + "description").withStyle(ChatFormatting.GRAY),
-                effect.copy().withStyle(addon.tooltipColor)
+                effect.copy().withStyle(addon.tooltipColor),
+                Component.translatable(KEY + "value_effect", NUMBER.format(valueMultiplier(addon, count)))
+                        .withStyle(addon.tooltipColor)
         );
+    }
+
+    /** How many times the mean value of each output item grows, as the input's value is split across fewer items. */
+    private static double valueMultiplier(Addon addon, int count) {
+        return switch (addon) {
+            case TYPE -> (double) TransmuterBlockEntity.OUTPUT_COUNT / TransmuterBlockEntity.sampleCount(count);
+            case COUNT -> MaxEntSampler.SUPPORTED_EXPECTED_COUNTS[TransmuterBlockEntity.DEFAULT_COUNT_INDEX]
+                    / MaxEntSampler.SUPPORTED_EXPECTED_COUNTS[TransmuterBlockEntity.countIndex(count)];
+            case VOID -> TransmuterBlockEntity.voidMultiplier(count);
+        };
     }
 
     private static String expectedCount(int countIndex) {

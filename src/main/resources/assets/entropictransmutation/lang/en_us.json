@@ -15,6 +15,7 @@
   "gui.entropictransmutation.transmuter.count.effect": "Average stack size: %s → %s",
   "gui.entropictransmutation.transmuter.void.description": "Halves the chance of obtaining any outputs",
   "gui.entropictransmutation.transmuter.void.effect": "Output chance: 1 → 1/%s",
+  "gui.entropictransmutation.transmuter.value_effect": "Average item value: ×%s",
   "gui.entropictransmutation.transmuter.progress": "Transmuting: %s / %s ticks",
   "gui.entropictransmutation.transmuter.disabled_output": "Disabled"
 }

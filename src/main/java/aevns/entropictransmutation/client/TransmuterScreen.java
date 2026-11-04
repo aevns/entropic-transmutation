@@ -110,8 +110,14 @@ public class TransmuterScreen extends AbstractContainerScreen<TransmuterMenu> {
         for (int i = samples; i < TransmuterBlockEntity.OUTPUT_COUNT; i++) {
             Slot slot = menu.slots.get(TransmuterMenu.outputSlotIndex(i));
             if (!slot.hasItem()) {
-                graphics.blit(TEXTURE, leftPos + slot.x, topPos + slot.y, DISABLED_SLOT_U, DISABLED_SLOT_V, 16, 16);
+                hatchSlot(graphics, slot);
             }
+        }
+
+        // Likewise the empty input while it's locked by pending outputs
+        Slot input = menu.slots.get(TransmuterMenu.INPUT_SLOT);
+        if (!input.hasItem() && menu.isInputLocked()) {
+            hatchSlot(graphics, input);
         }
 
         for (Addon addon : Addon.values()) {
@@ -119,6 +125,10 @@ public class TransmuterScreen extends AbstractContainerScreen<TransmuterMenu> {
             graphics.blit(TEXTURE, leftPos + ADDON_X, topPos + addon.y(),
                     SYMBOL_U + addon.ordinal() * 8, v, SYMBOL_SIZE, SYMBOL_SIZE + 1);
         }
+    }
+
+    private void hatchSlot(GuiGraphics graphics, Slot slot) {
+        graphics.blit(TEXTURE, leftPos + slot.x, topPos + slot.y, DISABLED_SLOT_U, DISABLED_SLOT_V, 16, 16);
     }
 
     @Override
@@ -144,7 +154,7 @@ public class TransmuterScreen extends AbstractContainerScreen<TransmuterMenu> {
         }
     }
 
-    /** Tooltips for the parts of the GUI that aren't items: addon labels, progress, and disabled outputs. */
+    /** Tooltips for the parts of the GUI that aren't items: addon labels, progress, and disabled slots. */
     private List<Component> extraTooltip(int x, int y) {
         for (Addon addon : Addon.values()) {
             if (count(addon) > 0 && x >= ADDON_X && x < ADDON_DIGIT_X + 6
@@ -160,6 +170,9 @@ public class TransmuterScreen extends AbstractContainerScreen<TransmuterMenu> {
         }
 
         if (hoveredSlot != null && !hoveredSlot.hasItem()) {
+            if (hoveredSlot == menu.slots.get(TransmuterMenu.INPUT_SLOT) && menu.isInputLocked()) {
+                return List.of(Component.translatable(KEY + "input_locked").withStyle(ChatFormatting.GRAY));
+            }
             int samples = TransmuterBlockEntity.sampleCount(menu.getTypeSuppressors());
             for (int i = samples; i < TransmuterBlockEntity.OUTPUT_COUNT; i++) {
                 if (hoveredSlot == menu.slots.get(TransmuterMenu.outputSlotIndex(i))) {

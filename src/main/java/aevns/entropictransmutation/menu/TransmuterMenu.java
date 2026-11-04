@@ -39,6 +39,8 @@ public class TransmuterMenu extends AbstractContainerMenu {
     private static final int DATA_VOID_AMPLIFIERS = 3;
     private static final int DATA_SIZE = 4;
 
+    /** Index in this menu's slot list of the input slot. */
+    public static final int INPUT_SLOT = 0;
     private static final int OUTPUT_START = 1;
     private static final int INVENTORY_START = OUTPUT_START + TransmuterBlockEntity.OUTPUT_COUNT;
     private static final int INVENTORY_END = INVENTORY_START + 36;
@@ -161,6 +163,14 @@ public class TransmuterMenu extends AbstractContainerMenu {
 
     public int getVoidAmplifiers() {
         return data.get(DATA_VOID_AMPLIFIERS);
+    }
+
+    /** The input can't be added to while any output is waiting to be collected. */
+    public boolean isInputLocked() {
+        for (int i = 0; i < TransmuterBlockEntity.OUTPUT_COUNT; i++) {
+            if (slots.get(outputSlotIndex(i)).hasItem()) return true;
+        }
+        return false;
     }
 
     /** Index in this menu's slot list of the given output sample's slot. */

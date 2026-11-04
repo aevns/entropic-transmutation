@@ -17,5 +17,6 @@
   "gui.entropictransmutation.transmuter.void.effect": "Output chance: 1 → 1/%s",
   "gui.entropictransmutation.transmuter.value_effect": "Average item value: ×%s",
   "gui.entropictransmutation.transmuter.progress": "Transmuting: %s / %s ticks",
-  "gui.entropictransmutation.transmuter.disabled_output": "Disabled"
+  "gui.entropictransmutation.transmuter.disabled_output": "Disabled",
+  "gui.entropictransmutation.transmuter.input_locked": "Locked while outputs are full"
 }

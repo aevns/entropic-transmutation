@@ -3,8 +3,8 @@
 	"credit": "Made with Blockbench",
 	"texture_size": [32, 32],
 	"textures": {
-		"5": "entropictransmutation:block/void_suppressor",
-		"particle": "entropictransmutation:block/void_suppressor"
+		"5": "entropictransmutation:block/void_amplifier",
+		"particle": "entropictransmutation:block/void_amplifier"
 	},
 	"elements": [
 		{
@@ -52,7 +52,7 @@
 	],
 	"groups": [
 		{
-			"name": "void_suppressor",
+			"name": "void_amplifier",
 			"origin": [8, 8, 8],
 			"scope": 0,
 			"color": 0,

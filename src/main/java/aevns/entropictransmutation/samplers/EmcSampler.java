@@ -1,5 +1,6 @@
 package aevns.entropictransmutation.samplers;
 
+import aevns.entropictransmutation.EntropicTransmutation;
 import aevns.entropictransmutation.mixins.EMCMappingHandlerMixin;
 import aevns.entropictransmutation.samplers.maxent.MaxEntSampler;
 import aevns.entropictransmutation.samplers.maxent.Params;
@@ -18,22 +19,29 @@ import org.slf4j.Logger;
 import java.util.Arrays;
 import java.util.Comparator;
 
-@EventBusSubscriber(modid = "entropictransmutation")
+@EventBusSubscriber(modid = EntropicTransmutation.MODID)
 public final class EmcSampler {
-    public static final Logger LOGGER = LogUtils.getLogger();
+    private static final Logger LOGGER = LogUtils.getLogger();
+
+    private static ItemInfo[] itemData;
+    private static MaxEntSampler sampler;
 
     private EmcSampler() {
-        throw new UnsupportedOperationException("MaxEntropySamplers cannot be instantiated.");
     }
 
-    static ItemInfo[] itemData;
-    static double[] itemValues;
-    static Params params;
-    public static MaxEntSampler sampler;
+    /** Whether EMC data has arrived, so that sampleItemStack can be called. */
+    public static boolean isReady() {
+        return sampler != null;
+    }
+
+    /** Whether an item may appear in transmutation outputs. Item blacklists would apply here. */
+    private static boolean isEligible(ItemInfo item) {
+        return true;
+    }
 
     @SubscribeEvent
     static void onEmcRemap(EMCRemapEvent event) {
-        // Bad mixin required to get the emc map, as it's not accessible(?) through ProjectE's API
+        // ProjectE's API doesn't expose the full EMC map, so it's read through a mixin
         Object2LongMap<ItemInfo> emcMap = EMCMappingHandlerMixin.getMap();
         if (emcMap == null) return;
 
@@ -47,10 +55,7 @@ public final class EmcSampler {
         int index = 0;
         while (iterator.hasNext()) {
             Object2LongMap.Entry<ItemInfo> entry = iterator.next();
-            String modId = entry.getKey().getItem().unwrapKey()
-                    .map(key -> key.location().getNamespace())
-                    .orElse("minecraft");
-            if (true) { //modId.equals("minecraft")) {
+            if (isEligible(entry.getKey())) {
                 indices[index] = index;
                 unsortedItemData[index] = entry.getKey();
                 unsortedItemValues[index] = entry.getLongValue();
@@ -58,27 +63,31 @@ public final class EmcSampler {
             }
         }
         final int newSize = index;
-        Arrays.sort(indices, 0, newSize, Comparator.comparingDouble(i -> unsortedItemValues[i]));
-        itemData = new ItemInfo[newSize];
-        itemValues = new double[newSize];
-        for (int i = 0; i < newSize; i++) {
-            itemData[i] = unsortedItemData[indices[i]];
-            itemValues[i] = unsortedItemValues[indices[i]];
+        if (newSize == 0) {
+            LOGGER.warn("No items are eligible for transmutation; the EMC sampler is unavailable.");
+            sampler = null;
+            itemData = null;
+            return;
         }
-        LOGGER.info(Arrays.toString(itemValues));
+
+        Arrays.sort(indices, 0, newSize, Comparator.comparingDouble(i -> unsortedItemValues[i]));
+        ItemInfo[] sortedItemData = new ItemInfo[newSize];
+        double[] sortedItemValues = new double[newSize];
+        for (int i = 0; i < newSize; i++) {
+            sortedItemData[i] = unsortedItemData[indices[i]];
+            sortedItemValues[i] = unsortedItemValues[indices[i]];
+        }
+
         LOGGER.info("Creating max entropy sampler for {} items [EMC].", newSize);
-        params = new Params();
-        sampler = new MaxEntSampler(itemValues, itemData, params);
+        itemData = sortedItemData;
+        sampler = new MaxEntSampler(sortedItemValues, new Params());
         LOGGER.info("EMC Sampler memory footprint is roughly {} MB.", sampler.approximateMemoryBytes() / (1 << 20));
     }
 
-    public static ItemStack SampleItemStack(int countIndex, double meanTotalValue, RandomSource rng) {
-        if (itemData == null || itemValues == null || params == null || sampler == null) {
-            LOGGER.error("Cannot sample item stack: EMC data has not been remapped.");
-            return ItemStack.EMPTY;
-        }
+    /** Draws a random stack, or an empty one for the null outcome. Requires isReady(). */
+    public static ItemStack sampleItemStack(int countIndex, double meanTotalValue, RandomSource rng) {
         MaxEntSampler.Sample sample = sampler.sample(countIndex, meanTotalValue, rng);
-        if (sample.labelIndex == -1 || sample.count == 0) return ItemStack.EMPTY;
+        if (sample.count == 0) return ItemStack.EMPTY;
         ItemStack stack = itemData[sample.labelIndex].createStack();
         stack.setCount(sample.count);
         return stack;

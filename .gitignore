@@ -35,9 +35,6 @@ bin/
 ### Minecraft Modding ###
 run/
 !**/src/**/run/
-**/src/generated/**/.cache/
-repo/
-!**/src/**/repo/
 
 ### Testing ###
 /src/main/java/aevns/entropictransmutation/temp

@@ -4,14 +4,17 @@
   "block.entropictransmutation.transmuter_monitor": "Transmuter Monitor",
   "block.entropictransmutation.type_suppressor": "Type Suppressor",
   "block.entropictransmutation.count_suppressor": "Count Suppressor",
-  "block.entropictransmutation.void_suppressor": "Void Suppressor",
-  "item.entropictransmutation.example_item": "Example Item",
+  "block.entropictransmutation.void_amplifier": "Void Amplifier",
 
-  "entropictransmutation.configuration.title": "Entropic Transmutation Configs",
-  "entropictransmutation.configuration.section.entropictransmutation.common.toml": "Entropic Transmutation Configs",
-  "entropictransmutation.configuration.section.entropictransmutation.common.toml.title": "Entropic Transmutation Configs",
-  "entropictransmutation.configuration.items": "Item List",
-  "entropictransmutation.configuration.logDirtBlock": "Log Dirt Block",
-  "entropictransmutation.configuration.magicNumberIntroduction": "Magic Number Text",
-  "entropictransmutation.configuration.magicNumber": "Magic Number"
+  "container.entropictransmutation.transmuter": "Transmuter",
+  "gui.entropictransmutation.transmuter.addon": "%s ×%s",
+  "gui.entropictransmutation.transmuter.addon_max": "%s ×%s (max)",
+  "gui.entropictransmutation.transmuter.type.description": "Reduces the number of outputs by one",
+  "gui.entropictransmutation.transmuter.type.effect": "Outputs: %s → %s",
+  "gui.entropictransmutation.transmuter.count.description": "Divides the average size of output stacks by 4",
+  "gui.entropictransmutation.transmuter.count.effect": "Average stack size: %s → %s",
+  "gui.entropictransmutation.transmuter.void.description": "Halves the chance of obtaining any outputs",
+  "gui.entropictransmutation.transmuter.void.effect": "Output chance: 1 → 1/%s",
+  "gui.entropictransmutation.transmuter.progress": "Transmuting: %s / %s ticks",
+  "gui.entropictransmutation.transmuter.disabled_output": "Disabled"
 }

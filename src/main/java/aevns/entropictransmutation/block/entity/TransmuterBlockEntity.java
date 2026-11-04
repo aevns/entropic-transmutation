@@ -1,8 +1,9 @@
 package aevns.entropictransmutation.block.entity;
 
-import aevns.entropictransmutation.EntropicTransmutation;
 import aevns.entropictransmutation.block.TransmuterAddonBlock;
 import aevns.entropictransmutation.block.TransmuterBlock;
+import aevns.entropictransmutation.registry.ModBlockEntities;
+import aevns.entropictransmutation.registry.ModBlocks;
 import aevns.entropictransmutation.samplers.EmcSampler;
 import aevns.entropictransmutation.samplers.maxent.MaxEntSampler;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
@@ -34,9 +35,15 @@ import java.util.List;
 @MethodsReturnNonnullByDefault
 public class TransmuterBlockEntity extends BlockEntity {
     public static final int MAX_TRANSMUTATION_TIME = 30;
-    private static final int OUTPUT_COUNT = 4;
+    public static final int OUTPUT_COUNT = 4;
     /** Index into MaxEntSampler.SUPPORTED_EXPECTED_COUNTS used with no count suppressors: the largest stacks. */
-    private static final int DEFAULT_COUNT_INDEX = MaxEntSampler.SUPPORTED_EXPECTED_COUNTS.length - 1;
+    public static final int DEFAULT_COUNT_INDEX = MaxEntSampler.SUPPORTED_EXPECTED_COUNTS.length - 1;
+    /** Type suppressors beyond this have no further effect. */
+    public static final int MAX_TYPE_SUPPRESSORS = OUTPUT_COUNT - 1;
+    /** Count suppressors beyond this have no further effect. */
+    public static final int MAX_COUNT_SUPPRESSORS = DEFAULT_COUNT_INDEX;
+    /** The most void amplifiers that can attach: 3 faces each on the transmuter and the monitor. */
+    public static final int MAX_VOID_AMPLIFIERS = 6;
 
     /** Game time at which the current input transmutes, or -1 if no timer is running. */
     private long transmutationTime = -1;
@@ -65,7 +72,7 @@ public class TransmuterBlockEntity extends BlockEntity {
     private final IItemHandler automationHandler = new AutomationHandler();
 
     public TransmuterBlockEntity(BlockPos pos, BlockState state) {
-        super(EntropicTransmutation.TRANSMUTER_BLOCK_ENTITY.get(), pos, state);
+        super(ModBlockEntities.TRANSMUTER.get(), pos, state);
     }
 
     // ------------------------------------------------------------------
@@ -132,10 +139,50 @@ public class TransmuterBlockEntity extends BlockEntity {
         if (level == null) return addons;
         collectAttachedAddons(worldPosition, addons);
         BlockPos monitorPos = worldPosition.above();
-        if (level.getBlockState(monitorPos).is(EntropicTransmutation.TRANSMUTER_MONITOR_BLOCK)) {
+        if (level.getBlockState(monitorPos).is(ModBlocks.TRANSMUTER_MONITOR)) {
             collectAttachedAddons(monitorPos, addons);
         }
         return addons;
+    }
+
+    /** Each type suppressor removes one sample, down to a single sample. */
+    public static int sampleCount(int typeSuppressors) {
+        return OUTPUT_COUNT - Math.min(typeSuppressors, MAX_TYPE_SUPPRESSORS);
+    }
+
+    /** Each count suppressor divides the expected stack size by 4, down to the smallest supported. */
+    public static int countIndex(int countSuppressors) {
+        return DEFAULT_COUNT_INDEX - Math.min(countSuppressors, MAX_COUNT_SUPPRESSORS);
+    }
+
+    /**
+     * Each void amplifier halves the chance of sampling at all, and doubles the share when it does happen.
+     * Returns both factors: sampling happens with chance 1 / multiplier, with the share scaled by multiplier.
+     */
+    public static int voidMultiplier(int voidAmplifiers) {
+        return 1 << voidAmplifiers;
+    }
+
+    /** Ticks elapsed on the current transmutation timer, from 0 to MAX_TRANSMUTATION_TIME; 0 when idle. */
+    public int getProgressTicks() {
+        if (level == null || transmutationTime < 0) return 0;
+        long remaining = transmutationTime - level.getGameTime();
+        return (int) Math.max(0, Math.min(MAX_TRANSMUTATION_TIME, MAX_TRANSMUTATION_TIME - remaining));
+    }
+
+    /** Raw input handler for menu slots, which enforce the insert rules themselves via canTopUpInput. */
+    public ItemStackHandler getInputHandler() {
+        return inputSlot;
+    }
+
+    /** Raw output handler for menu slots, which must not accept insertion. */
+    public ItemStackHandler getOutputHandler() {
+        return outputSlots;
+    }
+
+    /** Automation and menus may top up the input, but only while there's no pending output. */
+    public boolean canTopUpInput(ItemStack stack) {
+        return isOutputEmpty() && inputSlot.isItemValid(0, stack);
     }
 
     /** Players may only insert into a completely idle machine. Safe to call on either side. */
@@ -174,15 +221,18 @@ public class TransmuterBlockEntity extends BlockEntity {
             scheduleTick(); // an older tick fired early, e.g. after remove + re-insert
             return;
         }
+        if (!EmcSampler.isReady()) {
+            // Keep the input and try again once EMC data has had time to arrive
+            transmutationTime = level.getGameTime() + MAX_TRANSMUTATION_TIME;
+            scheduleTick();
+            return;
+        }
         transmutationTime = -1;
 
         Object2IntMap<Block> addons = getAttachedAddons();
-        // Each type suppressor removes one sample, down to a single sample
-        int sampleCount = Math.max(1, OUTPUT_COUNT - addons.getInt(EntropicTransmutation.TYPE_SUPPRESSOR_BLOCK.get()));
-        // Each count suppressor divides the expected stack size by 4, down to the smallest supported
-        int countIndex = Math.max(0, DEFAULT_COUNT_INDEX - addons.getInt(EntropicTransmutation.COUNT_SUPPRESSOR_BLOCK.get()));
-        // Each void suppressor halves the chance of sampling at all, and doubles the share when it does happen
-        int voidMultiplier = 1 << addons.getInt(EntropicTransmutation.VOID_SUPPRESSOR_BLOCK.get());
+        int sampleCount = sampleCount(addons.getInt(ModBlocks.TYPE_SUPPRESSOR.get()));
+        int countIndex = countIndex(addons.getInt(ModBlocks.COUNT_SUPPRESSOR.get()));
+        int voidMultiplier = voidMultiplier(addons.getInt(ModBlocks.VOID_AMPLIFIER.get()));
 
         ItemStack input = inputSlot.getStackInSlot(0);
         double share = input.getCount() * (double) IEMCProxy.INSTANCE.getSellValue(input) * voidMultiplier / sampleCount;
@@ -192,7 +242,7 @@ public class TransmuterBlockEntity extends BlockEntity {
             try {
                 inputSlot.setStackInSlot(0, ItemStack.EMPTY);
                 for (int i = 0; sampling && i < sampleCount; i++) {
-                    outputSlots.setStackInSlot(i, EmcSampler.SampleItemStack(countIndex, share, rng));
+                    outputSlots.setStackInSlot(i, EmcSampler.sampleItemStack(countIndex, share, rng));
                 }
             } finally {
                 batching = false;
@@ -292,8 +342,7 @@ public class TransmuterBlockEntity extends BlockEntity {
 
         @Override
         public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            // Automation may top up the input, but only while there's no pending output.
-            if (slot != 0 || !isOutputEmpty()) return stack;
+            if (slot != 0 || !canTopUpInput(stack)) return stack;
             return inputSlot.insertItem(0, stack, simulate);
         }
 

@@ -1,5 +1,5 @@
 {
-  "parent": "entropictransmutation:block/void_suppressor",
+  "parent": "entropictransmutation:block/void_amplifier",
   "display": {
     "gui": {
       "rotation": [ 30, 225, 0 ],

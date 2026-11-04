@@ -116,6 +116,10 @@ public class TransmuterBlock extends HorizontalDirectionalBlock implements Entit
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
                                               Player player, InteractionHand hand, BlockHitResult hitResult) {
+        // Addons held against a face they can attach to are placed there instead of being inserted
+        if (TransmuterAddonBlock.canAttach(stack, state, player, hand, hitResult)) {
+            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+        }
         if (!(level.getBlockEntity(pos) instanceof TransmuterBlockEntity transmuter)
                 || stack.isEmpty()
                 || !transmuter.canAcceptFromPlayer(stack)) {

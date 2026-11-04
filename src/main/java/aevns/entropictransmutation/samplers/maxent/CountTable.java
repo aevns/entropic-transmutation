@@ -2,8 +2,6 @@ package aevns.entropictransmutation.samplers.maxent;
 
 import net.minecraft.util.RandomSource;
 
-import java.util.function.IntToDoubleFunction;
-
 /**
  * For one expected count n: a set of stored target-s rows (ascending, in scaled units). Each row holds, for every
  * count c, an alias-method entry for drawing c and the pair of label rows to mix for drawing the label given c.
@@ -97,54 +95,5 @@ final class CountTable {
                 + (FixedPoint.isBelow(FixedPoint.lowBits(columnAndLabelRowRandom),
                         packedRows[countEntry + LABEL_ROW_MIX_THRESHOLD]) ? 1 : 0);
         return ((long) count << 32) | labelRow;
-    }
-
-    /** Receives each outcome of drawCountAndLabelRow with its exact probability. */
-    interface OutcomeVisitor {
-        /** labelRow is -1 for count 0, which has no label. */
-        void accept(double probability, int count, int labelRow);
-    }
-
-    /**
-     * Visits every (count, label row) outcome of drawCountAndLabelRow at scaledS with its exact probability,
-     * computed from the stored (quantized) tables rather than by sampling. The probabilities sum to 1.
-     */
-    void forEachOutcome(double scaledS, OutcomeVisitor visitor) {
-        int lowerRow = lowerTargetRow(scaledS);
-        double upperWeight = upperRowWeight(scaledS, lowerRow);
-        for (int rowOffsetFromLower = 0; rowOffsetFromLower < 2; rowOffsetFromLower++) {
-            int targetRow = lowerRow + rowOffsetFromLower;
-            if (targetRow >= scaledTargets.length) continue;
-            double rowWeight = rowOffsetFromLower == 0 ? 1 - upperWeight : upperWeight;
-            if (rowWeight == 0) continue;
-            double[] countProbabilities = new double[CountRange.STATE_COUNT];
-            for (int column = 0; column < CountRange.STATE_COUNT; column++) {
-                int entryOffset = (targetRow * CountRange.STATE_COUNT + column) * INTS_PER_COUNT_ENTRY;
-                AliasMethod.addColumnMass(countProbabilities, column,
-                        packedRows[entryOffset + ALIAS_THRESHOLD], packedRows[entryOffset + ALIAS_COUNT]);
-            }
-            visitor.accept(rowWeight * countProbabilities[0], 0, -1);
-            for (int count = 1; count < CountRange.STATE_COUNT; count++) {
-                int entryOffset = (targetRow * CountRange.STATE_COUNT + count) * INTS_PER_COUNT_ENTRY;
-                int labelRow = packedRows[entryOffset + LABEL_ROW];
-                double upperLabelRowMix = FixedPoint.toProbability(packedRows[entryOffset + LABEL_ROW_MIX_THRESHOLD]);
-                double probability = rowWeight * countProbabilities[count];
-                visitor.accept(probability * (1 - upperLabelRowMix), count, labelRow);
-                if (upperLabelRowMix > 0) visitor.accept(probability * upperLabelRowMix, count, labelRow + 1);
-            }
-        }
-    }
-
-    /**
-     * Exact {E[N], E[N x]} (scaled units) realized by drawCountAndLabelRow at scaledS, computed from the stored
-     * tables rather than by sampling.
-     */
-    double[] realizedMoments(double scaledS, IntToDoubleFunction rowMeanScaledValue) {
-        double[] sums = new double[2];
-        forEachOutcome(scaledS, (probability, count, labelRow) -> {
-            sums[0] += probability * count;
-            if (count > 0) sums[1] += probability * count * rowMeanScaledValue.applyAsDouble(labelRow);
-        });
-        return sums;
     }
 }

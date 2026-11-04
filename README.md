@@ -1,25 +1,23 @@
+# Entropic Transmutation
+![Transmuter](/blockbench_models/transmuter_basic.png)
 
-Installation information
-=======
+A NeoForge mod for Minecraft 1.21.1 that adds a chaotic transmutation machine which can transform items at random. A stack of items inserted into the transmuter will be transformed into one or more stacks of items with a random value, guaranteed only be match the value of the input on average. Parts can be added to the machine to manipulate its behavior in various ways:
 
-This template repository can be directly cloned to get you started with a new
-mod. Simply create a new repository cloned from this one, by following the
-instructions provided by [GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+- **Type Suppressor:** Reduces how many different item types can be output at once
+- **Count Suppressor:** Reduces the stack size of outputs for fewer but more valuable items
+- **Void Amplifier:** Adds a chance to simply void inputs, but gives more valuable outputs accordingly
+- **Transmuter Monitor:** Adds GUI controls and extends the machine, providing more attachment points for other parts
 
-Once you have your clone, simply open the repository in the IDE of your choice. The usual recommendation for an IDE is either IntelliJ IDEA or Eclipse.
+Item values are currently obtained from EMC provided by [ProjectE](https://www.curseforge.com/minecraft/mc-mods/projecte), which is a dependency.
 
-If at any point you are missing libraries in your IDE, or you've run into problems you can
-run `gradlew --refresh-dependencies` to refresh the local cache. `gradlew clean` to reset everything 
-{this does not affect your code} and then start the process again.
+## Building
 
-Mapping Names:
-============
-By default, the MDK is configured to use the official mapping names from Mojang for methods and fields 
-in the Minecraft codebase. These names are covered by a specific license. All modders should be aware of this
-license. For the latest license text, refer to the mapping file itself, or the reference copy here:
-https://github.com/NeoForged/NeoForm/blob/main/Mojang.md
+```bash
+./gradlew build
+```
 
-Additional Resources: 
-==========
-Community Documentation: https://docs.neoforged.net/  
-NeoForged Discord: https://discord.neoforged.net/
+```bash
+./gradlew runClient
+```
+
+`TEMPLATE_LICENSE.txt` applies to all code supplied by the [NeoForged MDK](https://github.com/NeoForged/MDK).

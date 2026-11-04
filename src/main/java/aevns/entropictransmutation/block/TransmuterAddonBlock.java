@@ -1,10 +1,14 @@
 package aevns.entropictransmutation.block;
 
-import aevns.entropictransmutation.EntropicTransmutation;
+import aevns.entropictransmutation.registry.ModBlocks;
 
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.LevelAccessor;
@@ -20,6 +24,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
@@ -43,6 +48,18 @@ public class TransmuterAddonBlock extends HorizontalDirectionalBlock  implements
                 .setValue(FACING, Direction.NORTH)
                 .setValue(WATERLOGGED, false)
         );
+    }
+
+    /**
+     * Whether stack is an addon that would be placed on the clicked face of a transmuter or monitor in attachedState.
+     * False if the face can't hold an addon, or the space in front of it is already taken.
+     */
+    static boolean canAttach(ItemStack stack, BlockState attachedState, Player player, InteractionHand hand,
+                             BlockHitResult hitResult) {
+        Direction face = hitResult.getDirection();
+        return stack.getItem() instanceof BlockItem item && item.getBlock() instanceof TransmuterAddonBlock
+                && face.getAxis().isHorizontal() && face != attachedState.getValue(FACING)
+                && new BlockPlaceContext(player, hand, stack, hitResult).canPlace();
     }
 
     @Override
@@ -72,8 +89,8 @@ public class TransmuterAddonBlock extends HorizontalDirectionalBlock  implements
     protected boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
         Direction facing = state.getValue(FACING);
         BlockState attachedState = level.getBlockState(pos.relative(facing.getOpposite()));
-        boolean validBlock = attachedState.is(EntropicTransmutation.TRANSMUTER_BLOCK); // maybe replace with a blocktag
-        validBlock |= attachedState.is(EntropicTransmutation.TRANSMUTER_MONITOR_BLOCK);
+        boolean validBlock = attachedState.is(ModBlocks.TRANSMUTER); // maybe replace with a blocktag
+        validBlock |= attachedState.is(ModBlocks.TRANSMUTER_MONITOR);
         return validBlock && (facing != attachedState.getValue(FACING));
     }
 

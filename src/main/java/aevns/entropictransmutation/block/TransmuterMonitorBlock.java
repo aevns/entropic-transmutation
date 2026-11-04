@@ -1,10 +1,19 @@
 package aevns.entropictransmutation.block;
 
-import aevns.entropictransmutation.EntropicTransmutation;
+import aevns.entropictransmutation.block.entity.TransmuterBlockEntity;
+import aevns.entropictransmutation.menu.TransmuterMenu;
+import aevns.entropictransmutation.registry.ModBlocks;
 
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -16,6 +25,7 @@ import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
@@ -31,6 +41,7 @@ public class TransmuterMonitorBlock extends HorizontalDirectionalBlock {
     public static final MapCodec<TransmuterMonitorBlock> CODEC = simpleCodec(TransmuterMonitorBlock::new);
     private static final VoxelShape NORTH_SHAPE = Block.box(0, 0, 4, 16, 16, 16);
     private static final Map<Direction, VoxelShape> SHAPES = TransmuterBlock.rotations(NORTH_SHAPE);
+    private static final Component CONTAINER_TITLE = Component.translatable("container.entropictransmutation.transmuter");
 
     public TransmuterMonitorBlock(BlockBehaviour.Properties properties) {
         super(properties);
@@ -61,7 +72,7 @@ public class TransmuterMonitorBlock extends HorizontalDirectionalBlock {
     protected boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
         Direction facing = state.getValue(FACING);
         BlockState attachedState = level.getBlockState(pos.relative(Direction.DOWN));
-        boolean validBlock = attachedState.is(EntropicTransmutation.TRANSMUTER_BLOCK);
+        boolean validBlock = attachedState.is(ModBlocks.TRANSMUTER);
         return validBlock && (facing == attachedState.getValue(FACING));
     }
 
@@ -80,6 +91,32 @@ public class TransmuterMonitorBlock extends HorizontalDirectionalBlock {
             }
         }
         return super.updateShape(state, direction, neighborState, level, pos, neighborPos);
+    }
+
+    /** Addons held against a face they can attach to are placed there instead of opening the menu. */
+    @Override
+    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
+                                              Player player, InteractionHand hand, BlockHitResult hitResult) {
+        if (TransmuterAddonBlock.canAttach(stack, state, player, hand, hitResult)) {
+            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+        }
+        return super.useItemOn(stack, state, level, pos, player, hand, hitResult);
+    }
+
+    /** Opens the menu of the transmuter below, which owns the inventory this monitor displays. */
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
+                                               BlockHitResult hitResult) {
+        if (!(level.getBlockEntity(pos.below()) instanceof TransmuterBlockEntity transmuter)) {
+            return InteractionResult.PASS;
+        }
+        if (!level.isClientSide) {
+            player.openMenu(new SimpleMenuProvider(
+                    (containerId, playerInventory, p) -> new TransmuterMenu(containerId, playerInventory, transmuter),
+                    CONTAINER_TITLE
+            ), transmuter.getBlockPos());
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
     // No block entity here, so capability caches pointing at this position must be invalidated manually

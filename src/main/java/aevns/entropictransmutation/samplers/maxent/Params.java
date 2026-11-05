@@ -3,12 +3,14 @@ package aevns.entropictransmutation.samplers.maxent;
 /** Construction-time tuning parameters. All are fixed once the sampler is built. */
 public final class Params {
     /**
-     * Exponent alpha in the label prior W_k ~ g_k * rho_k^(-alpha), where g_k is the number of array entries with
-     * unique value k and rho_k the kernel density of entries around it in log-value space (see LabelPriorWeights).
-     * 0 = every array entry equally likely a priori; 1 = prior mass depends on the extent of log-value space a
-     * region covers, not on how many entries crowd into it. Must be in [0, 1].
+     * Similarity sigma of two distinct items of equal value, in the label prior W_k ~ g_k / (1 - sigma + sigma * rho_k),
+     * where g_k is the number of array entries with unique value k and rho_k the kernel density of entries around it
+     * in log-value space (see LabelPriorWeights). 0 = every array entry equally likely a priori; 1 = prior mass depends
+     * on the extent of log-value space a region covers, not on how many entries crowd into it. In between, a crowded
+     * value counts as at most 1 / sigma items, so the default never treats one as more than about 10 distinct items.
+     * Must be in [0, 1].
      */
-    public double densityExponent = 1.0;
+    public double valueSimilarity = 0.1;
     /**
      * Width of the density kernel as a Weber fraction: the kernel has half-width ln(1 + weberFraction) in
      * u = ln(1 + v / valueTransitionScale), i.e. values within this relative difference count as neighbours.
@@ -25,12 +27,10 @@ public final class Params {
     /** Prior weight of the null state (count 0, no label), relative to sum_k W_k = 1 for each nonzero count. */
     public double nullStatePrior = 1.0;
     /**
-     * Same construction as densityExponent, applied to the counts 1..64 along u = ln(1 + c / countTransitionScale): m(c) ~ rho_c^(-alpha).
-     * 0 = every count equally likely a priori; 1 = counts too close in ratio to tell apart share one unit of weight
-     * (so, e.g., 33 and 34 are not each a separate chance). Must be in [0, 1].
+     * Weber fraction for counts (kernel half-width ln(1 + countWeberFraction) along u = ln(1 + c / countTransitionScale)).
+     * Counts too close in ratio to tell apart share weight, so 33 and 34 are not each a separate chance. As this tends
+     * to 0 every count keeps its own weight, for a uniform prior. Must be positive.
      */
-    public double countDensityExponent = 1.0;
-    /** Weber fraction for counts (kernel half-width ln(1 + countWeberFraction) on the count axis). Must be positive. */
     public double countWeberFraction = 0.15;
     /**
      * Transition scale c0 of the count axis u = ln(1 + c / c0), as valueTransitionScale is for values. Values below 1

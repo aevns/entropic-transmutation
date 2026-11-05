@@ -8,13 +8,13 @@ final class CountPrior {
 
     /**
      * The count weights m(c), c = 1..MAX_COUNT, normalized to mean 1 (so the null-state prior keeps its meaning
-     * relative to the label masses, which sum to 1 per count). m(c) ~ rho_c^(-alpha), where rho_c is the kernel
-     * density of the integers 1..MAX_COUNT around c along u = ln(1 + c / countTransitionScale), with half-width
+     * relative to the label masses, which sum to 1 per count). m(c) ~ 1 / rho_c (see {@link DensityPrior}, with
+     * similarity 1: a count has no identity beyond its magnitude), where rho_c is the kernel density of the integers 1..MAX_COUNT around c along u = ln(1 + c / countTransitionScale), with half-width
      * ln(1 + countWeberFraction): counts too close to tell apart share weight, while small counts, which are
      * distinguishable, keep full weight each. With the defaults counts 1..5 are fully distinct.
      */
     static double[] countWeights(Params params) {
-        DensityPrior.validate(params.countDensityExponent, params.countWeberFraction, params.countTransitionScale);
+        DensityPrior.validate(params.countWeberFraction, params.countTransitionScale);
         double c0 = params.countTransitionScale;
         // The density is evaluated with the integers continued past MAX_COUNT by one kernel width, so the top counts
         // are not mistaken for uncrowded just because no larger count exists. Only counts 1..MAX_COUNT get weights.
@@ -23,7 +23,7 @@ final class CountPrior {
         double[] positions = new double[extendedCount];
         int[] ones = new int[extendedCount];
         for (int i = 0; i < extendedCount; i++) { positions[i] = Math.log1p((i + 1) / c0); ones[i] = 1; }
-        double[] extendedWeights = DensityPrior.weights(positions, ones, params.countDensityExponent,
+        double[] extendedWeights = DensityPrior.weights(positions, ones, 1,
                 Math.log1p(params.countWeberFraction));
         double[] weights = Arrays.copyOf(extendedWeights, CountRange.MAX_COUNT);
         double sum = 0;

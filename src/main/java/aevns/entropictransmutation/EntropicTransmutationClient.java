@@ -1,7 +1,7 @@
 package aevns.entropictransmutation;
 
 import aevns.entropictransmutation.client.TransmuterScreen;
-import aevns.entropictransmutation.registry.ModMenuTypes;
+import aevns.entropictransmutation.registry.ETMenuTypes;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -12,6 +12,6 @@ import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 public class EntropicTransmutationClient {
     @SubscribeEvent
     static void registerScreens(RegisterMenuScreensEvent event) {
-        event.register(ModMenuTypes.TRANSMUTER.get(), TransmuterScreen::new);
+        event.register(ETMenuTypes.TRANSMUTER.get(), TransmuterScreen::new);
     }
 }

@@ -8,15 +8,15 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 
 @EventBusSubscriber(modid = EntropicTransmutation.MODID)
-public final class ModCapabilities {
-    private ModCapabilities() {
+public final class ETCapabilities {
+    private ETCapabilities() {
     }
 
     @SubscribeEvent
     static void registerCapabilities(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(
                 Capabilities.ItemHandler.BLOCK,
-                ModBlockEntities.TRANSMUTER.get(),
+                ETBlockEntities.TRANSMUTER.get(),
                 (be, side) -> be.getAutomationHandler()
         );
         // The monitor has no inventory of its own; automation is handled by the transmuter below it
@@ -26,7 +26,7 @@ public final class ModCapabilities {
                         level.getBlockEntity(pos.below()) instanceof TransmuterBlockEntity transmuter
                                 ? transmuter.getAutomationHandler()
                                 : null,
-                ModBlocks.TRANSMUTER_MONITOR.get()
+                ETBlocks.TRANSMUTER_MONITOR.get()
         );
     }
 }

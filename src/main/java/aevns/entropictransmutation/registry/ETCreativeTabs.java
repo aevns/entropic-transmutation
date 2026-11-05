@@ -9,7 +9,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
-public final class ModCreativeTabs {
+public final class ETCreativeTabs {
     private static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, EntropicTransmutation.MODID);
 
@@ -18,18 +18,18 @@ public final class ModCreativeTabs {
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.entropictransmutation"))
                     .withTabsBefore(CreativeModeTabs.COMBAT)
-                    .icon(() -> ModItems.TRANSMUTER.get().getDefaultInstance())
+                    .icon(() -> ETItems.TRANSMUTER.get().getDefaultInstance())
                     .displayItems((parameters, output) -> {
-                        output.accept(ModItems.TRANSMUTER.get());
-                        output.accept(ModItems.TRANSMUTER_MONITOR.get());
-                        output.accept(ModItems.TYPE_SUPPRESSOR.get());
-                        output.accept(ModItems.COUNT_SUPPRESSOR.get());
-                        output.accept(ModItems.VOID_AMPLIFIER.get());
+                        output.accept(ETItems.TRANSMUTER.get());
+                        output.accept(ETItems.TRANSMUTER_MONITOR.get());
+                        output.accept(ETItems.TYPE_SUPPRESSOR.get());
+                        output.accept(ETItems.COUNT_SUPPRESSOR.get());
+                        output.accept(ETItems.VOID_AMPLIFIER.get());
                     })
                     .build()
     );
 
-    private ModCreativeTabs() {
+    private ETCreativeTabs() {
     }
 
     public static void register(IEventBus modEventBus) {

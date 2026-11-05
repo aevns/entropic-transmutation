@@ -2,7 +2,7 @@ package aevns.entropictransmutation.block;
 
 import aevns.entropictransmutation.block.entity.TransmuterBlockEntity;
 import aevns.entropictransmutation.menu.TransmuterMenu;
-import aevns.entropictransmutation.registry.ModBlocks;
+import aevns.entropictransmutation.registry.ETBlocks;
 
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
@@ -72,7 +72,7 @@ public class TransmuterMonitorBlock extends HorizontalDirectionalBlock {
     protected boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
         Direction facing = state.getValue(FACING);
         BlockState attachedState = level.getBlockState(pos.relative(Direction.DOWN));
-        boolean validBlock = attachedState.is(ModBlocks.TRANSMUTER);
+        boolean validBlock = attachedState.is(ETBlocks.TRANSMUTER);
         return validBlock && (facing == attachedState.getValue(FACING));
     }
 

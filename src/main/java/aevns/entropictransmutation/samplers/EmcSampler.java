@@ -84,6 +84,11 @@ public final class EmcSampler {
         LOGGER.info("EMC Sampler memory footprint is roughly {} MB.", sampler.approximateMemoryBytes() / (1 << 20));
     }
 
+    /** The lowest mean stack value that sampleItemStack can honor; lower values are raised to this. Requires isReady(). */
+    public static double minMeanTotalValue(int countIndex) {
+        return sampler.minTargetS(countIndex);
+    }
+
     /** Draws a random stack, or an empty one for the null outcome. Requires isReady(). */
     public static ItemStack sampleItemStack(int countIndex, double meanTotalValue, RandomSource rng) {
         MaxEntSampler.Sample sample = sampler.sample(countIndex, meanTotalValue, rng);

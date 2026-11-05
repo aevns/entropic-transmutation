@@ -10,7 +10,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
-public final class ModBlocks {
+public final class ETBlocks {
     private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(EntropicTransmutation.MODID);
 
     public static final DeferredBlock<TransmuterBlock> TRANSMUTER =
@@ -21,7 +21,7 @@ public final class ModBlocks {
     public static final DeferredBlock<TransmuterAddonBlock> COUNT_SUPPRESSOR = addon("count_suppressor");
     public static final DeferredBlock<TransmuterAddonBlock> VOID_AMPLIFIER = addon("void_amplifier");
 
-    private ModBlocks() {
+    private ETBlocks() {
     }
 
     public static void register(IEventBus modEventBus) {

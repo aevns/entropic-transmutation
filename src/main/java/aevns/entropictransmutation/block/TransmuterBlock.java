@@ -9,14 +9,11 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -121,7 +118,6 @@ public class TransmuterBlock extends HorizontalDirectionalBlock implements Entit
             return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
         }
         if (!(level.getBlockEntity(pos) instanceof TransmuterBlockEntity transmuter)
-                || stack.isEmpty()
                 || !transmuter.canAcceptFromPlayer(stack)) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
@@ -159,33 +155,8 @@ public class TransmuterBlock extends HorizontalDirectionalBlock implements Entit
         while (!stack.isEmpty()) {
             ItemStack chunk = stack.split(max);
             player.getInventory().add(chunk); // shrinks chunk by whatever fit
-            if (!chunk.isEmpty()) {
-                ejectFromFace(level, pos, face, chunk);
-            }
+            popResourceFromFace(level, pos, face, chunk);
         }
-    }
-
-    /**
-     * Same placement as Block.popResourceFromFace, but without its doTileDrops
-     * gamerule check, which would delete the player's items when that rule is off.
-     */
-    private static void ejectFromFace(Level level, BlockPos pos, Direction face, ItemStack stack) {
-        RandomSource rng = level.random;
-        double halfW = EntityType.ITEM.getWidth() / 2.0;
-        double halfH = EntityType.ITEM.getHeight() / 2.0;
-        int sx = face.getStepX(), sy = face.getStepY(), sz = face.getStepZ();
-
-        double x = pos.getX() + 0.5 + (sx == 0 ? Mth.nextDouble(rng, -0.25, 0.25) : sx * (0.5 + halfW));
-        double y = pos.getY() + 0.5 + (sy == 0 ? Mth.nextDouble(rng, -0.25, 0.25) : sy * (0.5 + halfH)) - halfH;
-        double z = pos.getZ() + 0.5 + (sz == 0 ? Mth.nextDouble(rng, -0.25, 0.25) : sz * (0.5 + halfW));
-
-        double vx = sx == 0 ? Mth.nextDouble(rng, -0.1, 0.1) : sx * 0.1;
-        double vy = sy == 0 ? Mth.nextDouble(rng, 0.0, 0.1) : sy * 0.1;
-        double vz = sz == 0 ? Mth.nextDouble(rng, -0.1, 0.1) : sz * 0.1;
-
-        ItemEntity entity = new ItemEntity(level, x, y, z, stack, vx, vy, vz);
-        entity.setDefaultPickUpDelay();
-        level.addFreshEntity(entity);
     }
 
     // ------------------------------------------------------------------
@@ -205,7 +176,7 @@ public class TransmuterBlock extends HorizontalDirectionalBlock implements Entit
     @Override
     public void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource rng) {
         if (level.getBlockEntity(pos) instanceof TransmuterBlockEntity transmuter) {
-            transmuter.transmute(rng);
+            transmuter.transmute(level, rng);
         }
     }
 }

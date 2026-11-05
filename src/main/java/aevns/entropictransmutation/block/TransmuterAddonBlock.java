@@ -1,6 +1,6 @@
 package aevns.entropictransmutation.block;
 
-import aevns.entropictransmutation.registry.ModBlocks;
+import aevns.entropictransmutation.registry.ETBlocks;
 
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
@@ -89,8 +89,8 @@ public class TransmuterAddonBlock extends HorizontalDirectionalBlock  implements
     protected boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
         Direction facing = state.getValue(FACING);
         BlockState attachedState = level.getBlockState(pos.relative(facing.getOpposite()));
-        boolean validBlock = attachedState.is(ModBlocks.TRANSMUTER); // maybe replace with a blocktag
-        validBlock |= attachedState.is(ModBlocks.TRANSMUTER_MONITOR);
+        boolean validBlock = attachedState.is(ETBlocks.TRANSMUTER); // maybe replace with a blocktag
+        validBlock |= attachedState.is(ETBlocks.TRANSMUTER_MONITOR);
         return validBlock && (facing != attachedState.getValue(FACING));
     }
 

@@ -9,17 +9,17 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 import java.util.function.Supplier;
 
-public final class ModBlockEntities {
+public final class ETBlockEntities {
     private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITY_TYPES =
             DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, EntropicTransmutation.MODID);
 
     @SuppressWarnings("ConstantConditions")
     public static final Supplier<BlockEntityType<TransmuterBlockEntity>> TRANSMUTER = BLOCK_ENTITY_TYPES.register(
             "transmuter",
-            () -> BlockEntityType.Builder.of(TransmuterBlockEntity::new, ModBlocks.TRANSMUTER.get()).build(null)
+            () -> BlockEntityType.Builder.of(TransmuterBlockEntity::new, ETBlocks.TRANSMUTER.get()).build(null)
     );
 
-    private ModBlockEntities() {
+    private ETBlockEntities() {
     }
 
     public static void register(IEventBus modEventBus) {

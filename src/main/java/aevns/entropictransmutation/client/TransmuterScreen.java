@@ -4,7 +4,7 @@ import aevns.entropictransmutation.EntropicTransmutation;
 import aevns.entropictransmutation.block.TransmuterAddonBlock;
 import aevns.entropictransmutation.block.entity.TransmuterBlockEntity;
 import aevns.entropictransmutation.menu.TransmuterMenu;
-import aevns.entropictransmutation.registry.ModBlocks;
+import aevns.entropictransmutation.registry.ETBlocks;
 import aevns.entropictransmutation.samplers.maxent.MaxEntSampler;
 import net.minecraft.ChatFormatting;
 import net.minecraft.MethodsReturnNonnullByDefault;
@@ -51,11 +51,11 @@ public class TransmuterScreen extends AbstractContainerScreen<TransmuterMenu> {
 
     /** Addon labels from top to bottom; each symbol sprite is 7 x 8 with its shadow, 8 px apart in the texture. */
     private enum Addon {
-        TYPE(ModBlocks.TYPE_SUPPRESSOR, 0xB07CF0, 0x5A2C96, ChatFormatting.LIGHT_PURPLE,
+        TYPE(ETBlocks.TYPE_SUPPRESSOR, 0xB07CF0, 0x5A2C96, ChatFormatting.LIGHT_PURPLE,
                 TransmuterBlockEntity.MAX_TYPE_SUPPRESSORS),
-        COUNT(ModBlocks.COUNT_SUPPRESSOR, 0x2FCAD8, 0x0B6670, ChatFormatting.AQUA,
+        COUNT(ETBlocks.COUNT_SUPPRESSOR, 0x2FCAD8, 0x0B6670, ChatFormatting.AQUA,
                 TransmuterBlockEntity.MAX_COUNT_SUPPRESSORS),
-        VOID(ModBlocks.VOID_AMPLIFIER, 0xFF962E, 0x9C4300, ChatFormatting.GOLD,
+        VOID(ETBlocks.VOID_AMPLIFIER, 0xFF962E, 0x9C4300, ChatFormatting.GOLD,
                 TransmuterBlockEntity.MAX_VOID_AMPLIFIERS);
 
         final DeferredBlock<TransmuterAddonBlock> block;

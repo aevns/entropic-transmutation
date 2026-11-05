@@ -1,12 +1,13 @@
 package aevns.entropictransmutation.menu;
 
 import aevns.entropictransmutation.block.entity.TransmuterBlockEntity;
-import aevns.entropictransmutation.registry.ModBlocks;
-import aevns.entropictransmutation.registry.ModMenuTypes;
+import aevns.entropictransmutation.registry.ETBlocks;
+import aevns.entropictransmutation.registry.ETMenuTypes;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMaps;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -63,8 +64,8 @@ public class TransmuterMenu extends AbstractContainerMenu {
 
     private TransmuterMenu(int containerId, Inventory playerInventory,
                            @Nullable TransmuterBlockEntity transmuter, ContainerData data) {
-        super(ModMenuTypes.TRANSMUTER.get(), containerId);
-        this.access = transmuter != null && transmuter.getLevel() != null
+        super(ETMenuTypes.TRANSMUTER.get(), containerId);
+        this.access = transmuter != null
                 ? ContainerLevelAccess.create(transmuter.getLevel(), transmuter.getBlockPos())
                 : ContainerLevelAccess.NULL;
         this.data = data;
@@ -78,7 +79,7 @@ public class TransmuterMenu extends AbstractContainerMenu {
             @Override
             public boolean mayPlace(ItemStack stack) {
                 if (transmuter == null) return super.mayPlace(stack);
-                return !stack.isEmpty() && transmuter.canTopUpInput(stack);
+                return transmuter.canTopUpInput(stack);
             }
 
             // Merging into an occupied slot grows the stack in place, which the handler doesn't see on its own
@@ -111,17 +112,19 @@ public class TransmuterMenu extends AbstractContainerMenu {
     /** Reads live values from the block entity, scanning for attached addons at most once per tick. */
     private static final class ServerData implements ContainerData {
         private final TransmuterBlockEntity transmuter;
+        private final ServerLevel level;
         private Object2IntMap<Block> addons = Object2IntMaps.emptyMap();
         private long addonsScanTime = -1;
 
         private ServerData(TransmuterBlockEntity transmuter) {
             this.transmuter = transmuter;
+            this.level = (ServerLevel) transmuter.getLevel();
         }
 
         private int addonCount(Block addon) {
-            long gameTime = transmuter.getLevel().getGameTime();
+            long gameTime = level.getGameTime();
             if (gameTime != addonsScanTime) {
-                addons = transmuter.getAttachedAddons();
+                addons = transmuter.getAttachedAddons(level);
                 addonsScanTime = gameTime;
             }
             return addons.getInt(addon);
@@ -130,10 +133,10 @@ public class TransmuterMenu extends AbstractContainerMenu {
         @Override
         public int get(int index) {
             return switch (index) {
-                case DATA_PROGRESS -> transmuter.getProgressTicks();
-                case DATA_TYPE_SUPPRESSORS -> addonCount(ModBlocks.TYPE_SUPPRESSOR.get());
-                case DATA_COUNT_SUPPRESSORS -> addonCount(ModBlocks.COUNT_SUPPRESSOR.get());
-                case DATA_VOID_AMPLIFIERS -> addonCount(ModBlocks.VOID_AMPLIFIER.get());
+                case DATA_PROGRESS -> transmuter.getProgressTicks(level);
+                case DATA_TYPE_SUPPRESSORS -> addonCount(ETBlocks.TYPE_SUPPRESSOR.get());
+                case DATA_COUNT_SUPPRESSORS -> addonCount(ETBlocks.COUNT_SUPPRESSOR.get());
+                case DATA_VOID_AMPLIFIERS -> addonCount(ETBlocks.VOID_AMPLIFIER.get());
                 default -> 0;
             };
         }
@@ -180,7 +183,7 @@ public class TransmuterMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return stillValid(access, player, ModBlocks.TRANSMUTER.get());
+        return stillValid(access, player, ETBlocks.TRANSMUTER.get());
     }
 
     @Override

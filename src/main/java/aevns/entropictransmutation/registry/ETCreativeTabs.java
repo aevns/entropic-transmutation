@@ -13,7 +13,7 @@ public final class ETCreativeTabs {
     private static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, EntropicTransmutation.MODID);
 
-    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> TRANSMUTER_TAB = CREATIVE_MODE_TABS.register(
+    private static final DeferredHolder<CreativeModeTab, CreativeModeTab> TRANSMUTER_TAB = CREATIVE_MODE_TABS.register(
             "transmuter_tab",
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.entropictransmutation"))

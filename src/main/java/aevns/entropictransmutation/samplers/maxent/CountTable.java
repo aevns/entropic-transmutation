@@ -46,8 +46,6 @@ final class CountTable {
 
     double minScaledTarget() { return scaledTargets[0]; }
 
-    double maxScaledTarget() { return scaledTargets[scaledTargets.length - 1]; }
-
     long approximateMemoryBytes() {
         return 4L * packedRows.length + 8L * scaledTargets.length;
     }

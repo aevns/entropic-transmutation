@@ -6,6 +6,7 @@ import aevns.entropictransmutation.block.TransmuterBlock;
 import aevns.entropictransmutation.block.TransmuterMonitorBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.material.PushReaction;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -16,7 +17,8 @@ public final class ETBlocks {
     public static final DeferredBlock<TransmuterBlock> TRANSMUTER =
             BLOCKS.register("transmuter", () -> new TransmuterBlock(machineProperties()));
     public static final DeferredBlock<TransmuterMonitorBlock> TRANSMUTER_MONITOR =
-            BLOCKS.register("transmuter_monitor", () -> new TransmuterMonitorBlock(machineProperties()));
+            BLOCKS.register("transmuter_monitor", () -> new TransmuterMonitorBlock(
+                    machineProperties().pushReaction(PushReaction.DESTROY)));
     public static final DeferredBlock<TransmuterAddonBlock> TYPE_SUPPRESSOR = addon("type_suppressor");
     public static final DeferredBlock<TransmuterAddonBlock> COUNT_SUPPRESSOR = addon("count_suppressor");
     public static final DeferredBlock<TransmuterAddonBlock> VOID_AMPLIFIER = addon("void_amplifier");
@@ -32,7 +34,7 @@ public final class ETBlocks {
         return BlockBehaviour.Properties.of()
                 .noOcclusion()
                 .lightLevel(state -> 4)
-                .strength(2.0f)
+                .strength(1.0f)
                 .sound(SoundType.VAULT);
     }
 
@@ -40,8 +42,9 @@ public final class ETBlocks {
         return BLOCKS.register(name, () -> new TransmuterAddonBlock(BlockBehaviour.Properties.of()
                 .noCollission()
                 .noOcclusion()
+                .pushReaction(PushReaction.DESTROY)
                 .lightLevel(state -> 7)
-                .strength(2.0f)
+                .strength(0.5f)
                 .sound(SoundType.BAMBOO_WOOD_HANGING_SIGN)
         ));
     }

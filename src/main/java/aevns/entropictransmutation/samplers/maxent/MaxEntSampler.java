@@ -61,11 +61,6 @@ public final class MaxEntSampler {
         return countTables[expectedCountIndex].minScaledTarget() * valueScale;
     }
 
-    /** Upper end of the clamp interval for s (raw units) for the given expected-count index. */
-    public double maxTargetS(int expectedCountIndex) {
-        return countTables[expectedCountIndex].maxScaledTarget() * valueScale;
-    }
-
     public long approximateMemoryBytes() {
         long bytes = labelTable.approximateMemoryBytes() + groups.approximateMemoryBytes();
         for (CountTable table : countTables) bytes += table.approximateMemoryBytes();

@@ -12,6 +12,7 @@ public final class ETCapabilities {
     private ETCapabilities() {
     }
 
+    /** Both blocks expose the handler described on {@link TransmuterBlockEntity#getAutomationHandler()}, on every side. */
     @SubscribeEvent
     static void registerCapabilities(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(

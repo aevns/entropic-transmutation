@@ -2,10 +2,12 @@ package aevns.entropictransmutation.block;
 
 import aevns.entropictransmutation.block.entity.TransmuterBlockEntity;
 import com.mojang.serialization.MapCodec;
+import net.minecraft.ChatFormatting;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -16,7 +18,9 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -35,6 +39,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 @ParametersAreNonnullByDefault
@@ -105,6 +110,21 @@ public class TransmuterBlock extends HorizontalDirectionalBlock implements Entit
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new TransmuterBlockEntity(pos, state);
+    }
+
+    @Override
+    protected boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    @Override
+    protected int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
+        return level.getBlockEntity(pos) instanceof TransmuterBlockEntity transmuter ? transmuter.getOutputSignal() : 0;
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+        tooltip.add(Component.translatable(getDescriptionId() + ".tooltip").withStyle(ChatFormatting.GRAY));
     }
 
     // ------------------------------------------------------------------

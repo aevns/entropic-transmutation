@@ -1,11 +1,13 @@
 package aevns.entropictransmutation.block.entity;
 
+import aevns.entropictransmutation.api.TransmutationSettings;
+import aevns.entropictransmutation.api.TransmuterAddon;
 import aevns.entropictransmutation.block.TransmuterAddonBlock;
 import aevns.entropictransmutation.block.TransmuterBlock;
+import aevns.entropictransmutation.registry.ETAddons;
 import aevns.entropictransmutation.registry.ETBlockEntities;
 import aevns.entropictransmutation.registry.ETBlocks;
 import aevns.entropictransmutation.samplers.EmcSampler;
-import aevns.entropictransmutation.samplers.maxent.MaxEntSampler;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import moze_intel.projecte.api.proxy.IEMCProxy;
@@ -27,6 +29,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.items.ItemStackHandler;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -38,17 +41,22 @@ import java.util.List;
 public class TransmuterBlockEntity extends BlockEntity {
     public static final int MAX_TRANSMUTATION_TIME = 30;
     public static final int OUTPUT_COUNT = 4;
-    /** Index into MaxEntSampler.SUPPORTED_EXPECTED_COUNTS used with no count suppressors: the largest stacks. */
-    public static final int DEFAULT_COUNT_INDEX = MaxEntSampler.SUPPORTED_EXPECTED_COUNTS.length - 1;
-    /** Type suppressors beyond this have no further effect. */
-    public static final int MAX_TYPE_SUPPRESSORS = OUTPUT_COUNT - 1;
-    /** Count suppressors beyond this have no further effect. */
-    public static final int MAX_COUNT_SUPPRESSORS = DEFAULT_COUNT_INDEX;
-    /** The most void amplifiers that can attach: 3 faces each on the transmuter and the monitor. */
-    public static final int MAX_VOID_AMPLIFIERS = 6;
     /** Value an input must fall short of the minimum mean payout by for the machine to be certain to explode. */
     private static final double CERTAIN_EXPLOSION_SHORTFALL = 20000;
     private static final float EXPLOSION_POWER = 1.0f;
+
+    /** One transmutation of the current input, with the addons attached at the time. */
+    private record Transmutation(TransmutationSettings settings, double inputValue) {
+        double share() {
+            return inputValue * settings.voidMultiplier() / settings.sampleCount();
+        }
+
+        /** How far the input's value is below the lowest mean total payout the sampler can honor; negative if it isn't. */
+        double shortfall() {
+            return EmcSampler.minMeanStackValue(settings.countIndex()) * settings.sampleCount() / settings.voidMultiplier()
+                    - inputValue;
+        }
+    }
 
     /** Game time at which the current input transmutes, or -1 if no timer is running. */
     private long transmutationTime = -1;
@@ -116,7 +124,7 @@ public class TransmuterBlockEntity extends BlockEntity {
     // NeoForge's default onDataPacket calls loadWithComponents -> loadAdditional, so no override needed.
 
     // ------------------------------------------------------------------
-    // Public API
+    // Shared with the block, menu and screen
     // ------------------------------------------------------------------
 
     public boolean isInputEmpty() {
@@ -130,17 +138,21 @@ public class TransmuterBlockEntity extends BlockEntity {
         return true;
     }
 
-    /** Handler exposed to hoppers/pipes: slot 0 is insert-only input, slots 1..4 are extract-only outputs. */
+    /**
+     * Handler exposed to hoppers/pipes on every side, of both the transmuter and its monitor. Slot 0 is the input, which
+     * can only be inserted into, and only while no output is waiting; slots 1..4 are the outputs, which can only be
+     * extracted from. Output stacks of unstackable items can be larger than their max stack size.
+     */
     public IItemHandler getAutomationHandler() {
         return automationHandler;
     }
 
     /**
-     * How many of each addon block are attached to the sides or back of this transmuter, or to the sides or back of
+     * How many of each addon are attached to the sides or back of this transmuter, or to the sides or back of
      * a monitor above it. Absent addons map to 0. Checked on demand, so it always reflects the current world state.
      */
-    public Object2IntMap<Block> getAttachedAddons(ServerLevel level) {
-        Object2IntMap<Block> addons = new Object2IntOpenHashMap<>();
+    public Object2IntMap<TransmuterAddon> getAttachedAddons(ServerLevel level) {
+        Object2IntMap<TransmuterAddon> addons = new Object2IntOpenHashMap<>();
         collectAttachedAddons(level, worldPosition, addons);
         BlockPos monitorPos = worldPosition.above();
         if (level.getBlockState(monitorPos).is(ETBlocks.TRANSMUTER_MONITOR)) {
@@ -149,29 +161,16 @@ public class TransmuterBlockEntity extends BlockEntity {
         return addons;
     }
 
-    /** Each type suppressor removes one sample, down to a single sample. */
-    public static int sampleCount(int typeSuppressors) {
-        return OUTPUT_COUNT - Math.min(typeSuppressors, MAX_TYPE_SUPPRESSORS);
-    }
-
-    /** Each count suppressor divides the expected stack size by 4, down to the smallest supported. */
-    public static int countIndex(int countSuppressors) {
-        return DEFAULT_COUNT_INDEX - Math.min(countSuppressors, MAX_COUNT_SUPPRESSORS);
-    }
-
-    /**
-     * Each void amplifier halves the chance of sampling at all, and doubles the share when it does happen.
-     * Returns both factors: sampling happens with chance 1 / multiplier, with the share scaled by multiplier.
-     */
-    public static int voidMultiplier(int voidAmplifiers) {
-        return 1 << voidAmplifiers;
-    }
-
     /** Ticks elapsed on the current transmutation timer, from 0 to MAX_TRANSMUTATION_TIME; 0 when idle. */
     public int getProgressTicks(ServerLevel level) {
         if (transmutationTime < 0) return 0;
         long remaining = transmutationTime - level.getGameTime();
         return (int) Math.max(0, Math.min(MAX_TRANSMUTATION_TIME, MAX_TRANSMUTATION_TIME - remaining));
+    }
+
+    /** Comparator signal from the output slots. Limited to 15, since unstackable outputs can overfill their slots. */
+    public int getOutputSignal() {
+        return Math.min(15, ItemHandlerHelper.calcRedstoneFromInventory(outputSlots));
     }
 
     /** Raw input handler for menu slots, which enforce the insert rules themselves via canTopUpInput. */
@@ -232,28 +231,22 @@ public class TransmuterBlockEntity extends BlockEntity {
         }
         transmutationTime = -1;
 
-        Object2IntMap<Block> addons = getAttachedAddons(level);
-        int sampleCount = sampleCount(addons.getInt(ETBlocks.TYPE_SUPPRESSOR.get()));
-        int countIndex = countIndex(addons.getInt(ETBlocks.COUNT_SUPPRESSOR.get()));
-        int voidMultiplier = voidMultiplier(addons.getInt(ETBlocks.VOID_AMPLIFIER.get()));
-
-        ItemStack input = inputSlot.getStackInSlot(0);
-        double inputValue = input.getCount() * (double) IEMCProxy.INSTANCE.getSellValue(input);
-        double share = inputValue * voidMultiplier / sampleCount;
+        Transmutation transmutation = planTransmutation(level);
+        double share = transmutation.share();
         if (share > 0) {
-            double minPayout = EmcSampler.minMeanTotalValue(countIndex) * sampleCount / voidMultiplier;
-            if (rng.nextDouble() * CERTAIN_EXPLOSION_SHORTFALL < minPayout - inputValue) {
+            if (rng.nextDouble() * CERTAIN_EXPLOSION_SHORTFALL < transmutation.shortfall()) {
                 level.playSound(null, worldPosition, SoundEvents.RESPAWN_ANCHOR_DEPLETE.value(), SoundSource.BLOCKS,
                         1.0f, 1.0f);
                 explode(level);
                 return;
             }
 
-            boolean sampling = rng.nextInt(voidMultiplier) == 0;
+            TransmutationSettings settings = transmutation.settings();
+            boolean sampling = rng.nextInt(settings.voidMultiplier()) == 0;
             batching = true;
             inputSlot.setStackInSlot(0, ItemStack.EMPTY);
-            for (int i = 0; sampling && i < sampleCount; i++) {
-                outputSlots.setStackInSlot(i, EmcSampler.sampleItemStack(countIndex, share, rng));
+            for (int i = 0; sampling && i < settings.sampleCount(); i++) {
+                outputSlots.setStackInSlot(i, EmcSampler.sampleItemStack(settings.countIndex(), share, rng));
             }
             batching = false;
             markDirtyAndSync(level);
@@ -272,6 +265,12 @@ public class TransmuterBlockEntity extends BlockEntity {
     // Internals
     // ------------------------------------------------------------------
 
+    private Transmutation planTransmutation(ServerLevel level) {
+        ItemStack input = inputSlot.getStackInSlot(0);
+        return new Transmutation(TransmutationSettings.forAddons(getAttachedAddons(level)::getInt),
+                input.getCount() * (double) IEMCProxy.INSTANCE.getSellValue(input));
+    }
+
     /** Destroys the machine and its input, without dropping either. Removed first so it can't shield the blast. */
     private void explode(ServerLevel level) {
         inputSlot.setStackInSlot(0, ItemStack.EMPTY);
@@ -285,7 +284,7 @@ public class TransmuterBlockEntity extends BlockEntity {
     }
 
     /** Counts addons mounted on the horizontal faces of pos, other than the front, into addons. */
-    private void collectAttachedAddons(ServerLevel level, BlockPos pos, Object2IntMap<Block> addons) {
+    private void collectAttachedAddons(ServerLevel level, BlockPos pos, Object2IntMap<TransmuterAddon> addons) {
         // The monitor always shares the transmuter's facing, so the same front applies to both
         Direction front = getBlockState().getValue(TransmuterBlock.FACING);
         for (Direction side : Direction.Plane.HORIZONTAL) {
@@ -294,7 +293,8 @@ public class TransmuterBlockEntity extends BlockEntity {
             // An addon faces away from the block it's mounted on
             if (neighbor.getBlock() instanceof TransmuterAddonBlock
                     && neighbor.getValue(TransmuterAddonBlock.FACING) == side) {
-                addons.mergeInt(neighbor.getBlock(), 1, Integer::sum);
+                TransmuterAddon addon = ETAddons.forBlock(neighbor.getBlock());
+                if (addon != null) addons.mergeInt(addon, 1, Integer::sum);
             }
         }
     }
@@ -328,6 +328,9 @@ public class TransmuterBlockEntity extends BlockEntity {
         if (transmutationTime < 0) {
             transmutationTime = level.getGameTime() + MAX_TRANSMUTATION_TIME;
             scheduleTick(level);
+            if (EmcSampler.isReady() && planTransmutation(level).shortfall() > 0) {
+                level.playSound(null, worldPosition, SoundEvents.VAULT_AMBIENT, SoundSource.BLOCKS, 1.0f, 1.0f);
+            }
         }
     }
 
@@ -337,7 +340,12 @@ public class TransmuterBlockEntity extends BlockEntity {
     }
 
     private void markDirtyAndSync(ServerLevel level) {
-        setChanged();
+        setChanged(); // updates comparators around this block
+        BlockPos above = worldPosition.above();
+        BlockState aboveState = level.getBlockState(above);
+        if (aboveState.is(ETBlocks.TRANSMUTER_MONITOR)) {
+            level.updateNeighbourForOutputSignal(above, aboveState.getBlock());
+        }
         level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
     }
 

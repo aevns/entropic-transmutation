@@ -1,6 +1,9 @@
 package aevns.entropictransmutation.menu;
 
+import aevns.entropictransmutation.api.TransmutationSettings;
+import aevns.entropictransmutation.api.TransmuterAddon;
 import aevns.entropictransmutation.block.entity.TransmuterBlockEntity;
+import aevns.entropictransmutation.registry.ETAddons;
 import aevns.entropictransmutation.registry.ETBlocks;
 import aevns.entropictransmutation.registry.ETMenuTypes;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
@@ -16,7 +19,6 @@ import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import net.neoforged.neoforge.items.SlotItemHandler;
@@ -29,16 +31,14 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @MethodsReturnNonnullByDefault
 public class TransmuterMenu extends AbstractContainerMenu {
     // Item positions within the GUI; slot backgrounds sit 1 px up and to the left of these
-    public static final int INPUT_X = 44;
-    public static final int INPUT_Y = 35;
-    public static final int OUTPUT_X = 98;
-    public static final int OUTPUT_Y = 26;
+    private static final int INPUT_X = 44;
+    private static final int INPUT_Y = 35;
+    private static final int OUTPUT_X = 98;
+    private static final int OUTPUT_Y = 26;
 
     private static final int DATA_PROGRESS = 0;
-    private static final int DATA_TYPE_SUPPRESSORS = 1;
-    private static final int DATA_COUNT_SUPPRESSORS = 2;
-    private static final int DATA_VOID_AMPLIFIERS = 3;
-    private static final int DATA_SIZE = 4;
+    /** Index in the data of the first addon's attached count; each addon's follows by registry id. */
+    private static final int DATA_ADDONS_START = 1;
 
     /** Index in this menu's slot list of the input slot. */
     public static final int INPUT_SLOT = 0;
@@ -54,7 +54,7 @@ public class TransmuterMenu extends AbstractContainerMenu {
         this(containerId, playerInventory,
                 playerInventory.player.level().getBlockEntity(extraData.readBlockPos()) instanceof TransmuterBlockEntity transmuter
                         ? transmuter : null,
-                new SimpleContainerData(DATA_SIZE));
+                new SimpleContainerData(dataSize()));
     }
 
     /** Server side. */
@@ -109,11 +109,15 @@ public class TransmuterMenu extends AbstractContainerMenu {
         addDataSlots(data);
     }
 
+    private static int dataSize() {
+        return DATA_ADDONS_START + ETAddons.REGISTRY.size();
+    }
+
     /** Reads live values from the block entity, scanning for attached addons at most once per tick. */
     private static final class ServerData implements ContainerData {
         private final TransmuterBlockEntity transmuter;
         private final ServerLevel level;
-        private Object2IntMap<Block> addons = Object2IntMaps.emptyMap();
+        private Object2IntMap<TransmuterAddon> addons = Object2IntMaps.emptyMap();
         private long addonsScanTime = -1;
 
         private ServerData(TransmuterBlockEntity transmuter) {
@@ -121,7 +125,7 @@ public class TransmuterMenu extends AbstractContainerMenu {
             this.level = (ServerLevel) transmuter.getLevel();
         }
 
-        private int addonCount(Block addon) {
+        private int addonCount(TransmuterAddon addon) {
             long gameTime = level.getGameTime();
             if (gameTime != addonsScanTime) {
                 addons = transmuter.getAttachedAddons(level);
@@ -132,13 +136,9 @@ public class TransmuterMenu extends AbstractContainerMenu {
 
         @Override
         public int get(int index) {
-            return switch (index) {
-                case DATA_PROGRESS -> transmuter.getProgressTicks(level);
-                case DATA_TYPE_SUPPRESSORS -> addonCount(ETBlocks.TYPE_SUPPRESSOR.get());
-                case DATA_COUNT_SUPPRESSORS -> addonCount(ETBlocks.COUNT_SUPPRESSOR.get());
-                case DATA_VOID_AMPLIFIERS -> addonCount(ETBlocks.VOID_AMPLIFIER.get());
-                default -> 0;
-            };
+            return index == DATA_PROGRESS
+                    ? transmuter.getProgressTicks(level)
+                    : addonCount(ETAddons.REGISTRY.byIdOrThrow(index - DATA_ADDONS_START));
         }
 
         @Override
@@ -147,7 +147,7 @@ public class TransmuterMenu extends AbstractContainerMenu {
 
         @Override
         public int getCount() {
-            return DATA_SIZE;
+            return dataSize();
         }
     }
 
@@ -156,16 +156,14 @@ public class TransmuterMenu extends AbstractContainerMenu {
         return data.get(DATA_PROGRESS);
     }
 
-    public int getTypeSuppressors() {
-        return data.get(DATA_TYPE_SUPPRESSORS);
+    /** How many copies of the addon are attached, including any beyond the most that have an effect. */
+    public int getAddonCount(TransmuterAddon addon) {
+        return data.get(DATA_ADDONS_START + ETAddons.REGISTRY.getId(addon));
     }
 
-    public int getCountSuppressors() {
-        return data.get(DATA_COUNT_SUPPRESSORS);
-    }
-
-    public int getVoidAmplifiers() {
-        return data.get(DATA_VOID_AMPLIFIERS);
+    /** The settings given by the attached addons. */
+    public TransmutationSettings getSettings() {
+        return TransmutationSettings.forAddons(this::getAddonCount);
     }
 
     /** The input can't be added to while any output is waiting to be collected. */
@@ -183,7 +181,8 @@ public class TransmuterMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return stillValid(access, player, ETBlocks.TRANSMUTER.get());
+        return stillValid(access, player, ETBlocks.TRANSMUTER.get())
+                && access.evaluate((level, pos) -> level.getBlockState(pos.above()).is(ETBlocks.TRANSMUTER_MONITOR), true);
     }
 
     @Override

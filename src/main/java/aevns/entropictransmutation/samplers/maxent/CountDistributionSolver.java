@@ -11,6 +11,7 @@ final class CountDistributionSolver {
     private final LabelFamily labelFamily;
     private final double[] logPrior;
     private final LabelFamily.Point labelPoint = new LabelFamily.Point();
+    private double warmStartLambda = 0;
 
     final double[] logWeightBeforeLambda = new double[CountRange.STATE_COUNT];
     final double[] countProbabilities = new double[CountRange.STATE_COUNT];
@@ -53,17 +54,39 @@ final class CountDistributionSolver {
         return countSum / normalizer;
     }
 
-    /** Bisection on lambda (E[count] is strictly decreasing in lambda); leaves the solution in countProbabilities. */
-    void solveLambdaForExpectedCount(double expectedCount) {
-        double low = -1, high = 1;
-        while (expectedCountForLambda(low) < expectedCount) low *= 2;
-        while (expectedCountForLambda(high) > expectedCount) high *= 2;
-        for (int iteration = 0; iteration < 200; iteration++) {
-            double middle = 0.5 * (low + high);
-            if (expectedCountForLambda(middle) > expectedCount) low = middle; else high = middle;
-            if (high - low <= 1e-15 * Math.max(1, Math.abs(middle))) break;
+    /** Var[count] of the distribution currently in countProbabilities, with the given mean. */
+    private double countVariance(double mean) {
+        double variance = 0;
+        for (int count = 0; count < CountRange.STATE_COUNT; count++) {
+            double offset = count - mean;
+            variance += countProbabilities[count] * offset * offset;
         }
-        expectedCountForLambda(0.5 * (low + high));
+        return variance;
+    }
+
+    /**
+     * Newton's method on lambda, where E[count] is strictly decreasing with derivative -Var[count], warm-started from
+     * the previous solve, which is usually a nearby beta (the jump back to the lowest beta after the candidate sweep
+     * is the exception). Steps leaving the bracket found so far (a saturated distribution has almost no variance)
+     * bisect it, or widen the search if it isn't closed yet. Leaves the solution in countProbabilities.
+     */
+    void solveLambdaForExpectedCount(double expectedCount) {
+        double lambda = warmStartLambda;
+        double low = Double.NEGATIVE_INFINITY, high = Double.POSITIVE_INFINITY;
+        for (int iteration = 0; iteration < 200; iteration++) {
+            double mean = expectedCountForLambda(lambda);
+            if (mean > expectedCount) low = lambda; else high = lambda;
+            double next = lambda + (mean - expectedCount) / countVariance(mean);
+            if (Math.abs(next - lambda) <= 1e-15 * Math.max(1, Math.abs(lambda))) break;
+            if (!(next > low && next < high)) {
+                boolean bracketed = !Double.isInfinite(low) && !Double.isInfinite(high);
+                next = bracketed ? 0.5 * (low + high) : lambda + Math.copySign(1 + Math.abs(lambda), mean - expectedCount);
+                if (next == low || next == high) break;
+            }
+            lambda = next;
+        }
+        warmStartLambda = lambda;
+        expectedCountForLambda(lambda);
     }
 
     /** Fisher-Rao speed d(arclength)/d(beta) along the fixed-E[count] curve, for the current solution. */

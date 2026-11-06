@@ -15,6 +15,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
@@ -113,9 +114,11 @@ public class TransmuterBlock extends HorizontalDirectionalBlock implements Entit
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
                                               Player player, InteractionHand hand, BlockHitResult hitResult) {
-        // Addons held against a face they can attach to are placed there instead of being inserted
         if (TransmuterAddonBlock.canAttach(stack, state, player, hand, hitResult)) {
             return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+        }
+        if (placeMonitorAbove(stack, pos, player, hand, hitResult)) {
+            return ItemInteractionResult.sidedSuccess(level.isClientSide);
         }
         if (!(level.getBlockEntity(pos) instanceof TransmuterBlockEntity transmuter)
                 || !transmuter.canAcceptFromPlayer(stack)) {
@@ -147,6 +150,15 @@ public class TransmuterBlock extends HorizontalDirectionalBlock implements Entit
                 hadOutput ? SoundEvents.VAULT_EJECT_ITEM : SoundEvents.VAULT_INSERT_ITEM_FAIL,
                 SoundSource.BLOCKS, 0.25f, level.getRandom().nextFloat() * 0.2f + 0.9f);
         return InteractionResult.SUCCESS_NO_ITEM_USED;
+    }
+
+    /** Places a held monitor on top or returns false if stack isn't a monitor or couldn't be placed. */
+    private static boolean placeMonitorAbove(ItemStack stack, BlockPos pos, Player player, InteractionHand hand,
+                                             BlockHitResult hitResult) {
+        return stack.getItem() instanceof BlockItem item && item.getBlock() instanceof TransmuterMonitorBlock
+                && player.mayUseItemAt(pos.above(), Direction.UP, stack)
+                && item.place(new BlockPlaceContext(player, hand, stack,
+                        new BlockHitResult(hitResult.getLocation(), Direction.UP, pos, false))).consumesAction();
     }
 
     /** Splits a possibly-oversized stack into legal chunks, fills the inventory, ejects the rest. */

@@ -18,6 +18,10 @@ repositories {
             includeGroup "curse.maven"
         }
     }
+    maven {
+        url = "https://maven.blamejared.com"
+    }
+
 }
 
 base {
@@ -66,6 +70,7 @@ configurations {
 dependencies {
     compileOnly "curse.maven:projecte-226410:6611984"
     localRuntime "curse.maven:projecte-226410:6611984"
+    localRuntime "mezz.jei:jei-1.21.1-neoforge:19.69.0.457"
 }
 
 // Expands the ${} properties in src/main/templates into the generated mod metadata.

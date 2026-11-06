@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "A": {
+      "item": "minecraft:amethyst_cluster"
+    },
+    "B": {
+      "tag": "minecraft:stone_buttons"
+    },
+    "C": {
+      "item": "minecraft:crafter"
+    },
+    "J": {
+      "item": "minecraft:jukebox"
+    },
+    "S": {
+      "tag": "minecraft:wooden_slabs"
+    }
+  },
+  "pattern": [
+    "BBB",
+    "SCS",
+    "JAJ"
+  ],
+  "result": {
+    "count": 1,
+    "id": "entropictransmutation:transmuter"
+  }
+}

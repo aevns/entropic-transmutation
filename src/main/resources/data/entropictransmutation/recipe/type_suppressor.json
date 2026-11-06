@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "A": {
+      "item": "minecraft:amethyst_shard"
+    },
+    "C": {
+      "item": "minecraft:calibrated_sculk_sensor"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "N": {
+      "item": "minecraft:note_block"
+    }
+  },
+  "pattern": [
+    "IAI",
+    "NCN",
+    "IAI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "entropictransmutation:type_suppressor"
+  }
+}

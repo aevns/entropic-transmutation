@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "B": {
+      "item": "minecraft:breeze_rod"
+    },
+    "C": {
+      "item": "minecraft:copper_block"
+    },
+    "J": {
+      "item": "minecraft:jukebox"
+    },
+    "S": {
+      "tag": "minecraft:wooden_slabs"
+    },
+    "T": {
+      "item": "minecraft:tinted_glass"
+    }
+  },
+  "pattern": [
+    "SSS",
+    "JTJ",
+    "BCB"
+  ],
+  "result": {
+    "count": 1,
+    "id": "entropictransmutation:transmuter_monitor"
+  }
+}

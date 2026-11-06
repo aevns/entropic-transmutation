@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "C": {
+      "item": "minecraft:sculk_catalyst"
+    },
+    "E": {
+      "item": "minecraft:echo_shard"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "N": {
+      "item": "minecraft:note_block"
+    }
+  },
+  "pattern": [
+    "IEI",
+    "NCN",
+    "IEI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "entropictransmutation:count_suppressor"
+  }
+}

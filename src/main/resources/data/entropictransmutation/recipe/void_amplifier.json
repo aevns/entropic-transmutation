@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "B": {
+      "item": "minecraft:blaze_rod"
+    },
+    "E": {
+      "item": "minecraft:end_crystal"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "N": {
+      "item": "minecraft:note_block"
+    }
+  },
+  "pattern": [
+    "IBI",
+    "NEN",
+    "IBI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "entropictransmutation:void_amplifier"
+  }
+}

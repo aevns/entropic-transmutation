@@ -1,6 +1,8 @@
 package aevns.entropictransmutation.config;
 
-import aevns.entropictransmutation.samplers.maxent.Params;
+import io.github.aevns.fastmaxent.TableParams;
+import io.github.aevns.fastmaxent.priors.Axis;
+import io.github.aevns.fastmaxent.priors.DensityPrior;
 import moze_intel.projecte.api.ItemInfo;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -36,8 +38,15 @@ public final class ETConfig {
 
     public static final ModConfigSpec SPEC;
 
+    private static final double DEFAULT_VALUE_SIMILARITY = 0.2;
+    private static final double DEFAULT_WEBER_FRACTION = 0.15;
+    private static final double DEFAULT_VALUE_TRANSITION_SCALE = 10.0;
+    private static final double DEFAULT_NULL_STATE_PRIOR = 1.0;
+    private static final double DEFAULT_COUNT_WEBER_FRACTION = 0.15;
+    private static final double DEFAULT_COUNT_TRANSITION_SCALE = 1.0;
+
     static {
-        Params defaults = new Params();
+        TableParams tableDefaults = TableParams.DEFAULT;
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
 
         builder.comment("Which items can appear in transmutation outputs. Other mods can also change this per item.")
@@ -61,36 +70,36 @@ public final class ETConfig {
         VALUE_SIMILARITY = builder
                 .comment("How interchangeable two items of equal value feel. 0 treats all items as fully distinct,",
                         "1 treats items of equal value as identical. A crowded value counts as at most 1 / this many items.")
-                .defineInRange("valueSimilarity", defaults.valueSimilarity, 0.0, 1.0);
+                .defineInRange("valueSimilarity", DEFAULT_VALUE_SIMILARITY, 0.0, 1.0);
         WEBER_FRACTION = builder
                 .comment("Relative difference below which two item values count as neighbours.")
-                .defineInRange("weberFraction", defaults.weberFraction, 1e-6, 10.0);
+                .defineInRange("weberFraction", DEFAULT_WEBER_FRACTION, 1e-6, 10.0);
         VALUE_TRANSITION_SCALE = builder
                 .comment("EMC value below which differences count in absolute terms, and above which they count as ratios.")
-                .defineInRange("valueTransitionScale", defaults.valueTransitionScale, 1e-6, 1e12);
+                .defineInRange("valueTransitionScale", DEFAULT_VALUE_TRANSITION_SCALE, 1e-6, 1e12);
         NULL_STATE_PRIOR = builder
                 .comment("Prior weight of an output slot being empty, relative to each stack size's average weight.")
-                .defineInRange("nullStatePrior", defaults.nullStatePrior, 1e-6, 1e6);
+                .defineInRange("nullStatePrior", DEFAULT_NULL_STATE_PRIOR, 1e-6, 1e6);
         COUNT_WEBER_FRACTION = builder
                 .comment("Relative difference below which two stack sizes count as neighbours.",
                         "Near 0, every stack size is equally likely a priori.")
-                .defineInRange("countWeberFraction", defaults.countWeberFraction, 1e-6, 10.0);
+                .defineInRange("countWeberFraction", DEFAULT_COUNT_WEBER_FRACTION, 1e-6, 10.0);
         COUNT_TRANSITION_SCALE = builder
-                .comment("As valueTransitionScale, for stack sizes. Smaller values make small stacks more distinct.")
-                .defineInRange("countTransitionScale", defaults.countTransitionScale, 1e-6, 1e3);
+                .comment("Transition scale for stack sizes. Smaller values make small stacks more distinct.")
+                .defineInRange("countTransitionScale", DEFAULT_COUNT_TRANSITION_SCALE, 1e-6, 1e3);
         builder.pop();
 
         builder.comment("Precision of the sampler's tables, trading accuracy against memory and rebuild time.")
                 .push("tables");
         TARGET_ROWS = builder
                 .comment("Stored rows per expected stack size.")
-                .defineInRange("targetRowsPerExpectedCount", defaults.targetRowsPerExpectedCount, 2, 4096);
+                .defineInRange("targetRowsPerExpectedCount", tableDefaults.targetRowsPerConstraintPreset(), 2, 4096);
         BETA_CANDIDATES = builder
-                .comment("Points used to place those rows. This is the largest part of the rebuild time.")
-                .defineInRange("betaCandidatesPerSign", defaults.betaCandidatesPerSign, 2, 100000);
+                .comment("Candidate points used to place those rows. A high number significantly increases rebuild time.")
+                .defineInRange("betaCandidatesPerSign", tableDefaults.betaCandidatesPerSign(), 2, 100000);
         LABEL_TABLE_MEGABYTES = builder
                 .comment("Memory budget for the item table, in megabytes.")
-                .defineInRange("labelTableMegabytes", (int) (defaults.labelTableBudgetBytes / 1_000_000L), 1, 1024);
+                .defineInRange("labelTableMegabytes", (int) (tableDefaults.categoryTableBudgetBytes() / 1_000_000L), 1, 1024);
         builder.pop();
 
         SPEC = builder.build();
@@ -107,19 +116,30 @@ public final class ETConfig {
         return value instanceof String id && ResourceLocation.tryParse(id) != null;
     }
 
-    /** The configured sampler parameters. */
-    public static Params samplerParams() {
-        Params params = new Params();
-        params.valueSimilarity = VALUE_SIMILARITY.get();
-        params.weberFraction = WEBER_FRACTION.get();
-        params.valueTransitionScale = VALUE_TRANSITION_SCALE.get();
-        params.nullStatePrior = NULL_STATE_PRIOR.get();
-        params.countWeberFraction = COUNT_WEBER_FRACTION.get();
-        params.countTransitionScale = COUNT_TRANSITION_SCALE.get();
-        params.targetRowsPerExpectedCount = TARGET_ROWS.get();
-        params.betaCandidatesPerSign = BETA_CANDIDATES.get();
-        params.labelTableBudgetBytes = LABEL_TABLE_MEGABYTES.get() * 1_000_000L;
-        return params;
+    /** The prior over item values: values within the Weber fraction of each other share weight. */
+    public static DensityPrior valuePrior() {
+        return new DensityPrior(new Axis.Symlog(VALUE_TRANSITION_SCALE.get()), WEBER_FRACTION.get(),
+                VALUE_SIMILARITY.get(), false, false);
+    }
+
+    /**
+     * The prior over stack sizes. A stack size has no identity beyond its magnitude, so similarity is 1, and the
+     * sizes continue past the largest so that it isn't mistaken for uncrowded.
+     */
+    public static DensityPrior countPrior() {
+        return new DensityPrior(new Axis.Symlog(COUNT_TRANSITION_SCALE.get()), COUNT_WEBER_FRACTION.get(), 1, false, true);
+    }
+
+    /** The null state's weight, relative to an average stack size's. */
+    public static double nullStateWeight() {
+        return NULL_STATE_PRIOR.get();
+    }
+
+    /** The table precision settings, with the library's defaults for those not in the config. */
+    public static TableParams tableParams() {
+        TableParams defaults = TableParams.DEFAULT;
+        return new TableParams(defaults.saturationTolerance(), TARGET_ROWS.get(), defaults.categoryBlockSize(),
+                LABEL_TABLE_MEGABYTES.get() * 1_000_000L, BETA_CANDIDATES.get());
     }
 
     /** Tests whether an item may appear in outputs. Tags must be bound by the time it's called. */

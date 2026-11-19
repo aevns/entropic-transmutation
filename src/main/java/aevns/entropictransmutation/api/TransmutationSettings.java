@@ -2,7 +2,7 @@ package aevns.entropictransmutation.api;
 
 import aevns.entropictransmutation.block.entity.TransmuterBlockEntity;
 import aevns.entropictransmutation.registry.ETAddons;
-import aevns.entropictransmutation.samplers.maxent.MaxEntSampler;
+import aevns.entropictransmutation.samplers.EmcSampler;
 
 import java.util.function.ToIntFunction;
 
@@ -11,8 +11,8 @@ import java.util.function.ToIntFunction;
  * that keep them in range, so that addons can be combined in any amount.
  */
 public final class TransmutationSettings {
-    /** Index into MaxEntSampler.SUPPORTED_EXPECTED_COUNTS with no count reduction: the largest stacks. */
-    public static final int DEFAULT_COUNT_INDEX = MaxEntSampler.SUPPORTED_EXPECTED_COUNTS.length - 1;
+    /** Index into EmcSampler.SUPPORTED_EXPECTED_COUNTS with no count reduction: the largest stacks. */
+    public static final int DEFAULT_COUNT_INDEX = EmcSampler.SUPPORTED_EXPECTED_COUNTS.length - 1;
     private static final int MAX_VOID_MULTIPLIER = 1 << 30;
 
     private int sampleCount = TransmuterBlockEntity.OUTPUT_COUNT;
@@ -33,7 +33,7 @@ public final class TransmutationSettings {
         return sampleCount;
     }
 
-    /** Index into MaxEntSampler.SUPPORTED_EXPECTED_COUNTS of the expected size of output stacks. */
+    /** Index into EmcSampler.SUPPORTED_EXPECTED_COUNTS of the expected size of output stacks. */
     public int countIndex() {
         return countIndex;
     }

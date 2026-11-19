@@ -12,6 +12,7 @@ version = mod_version
 group = mod_group_id
 
 repositories {
+    mavenCentral()
     maven {
         url = "https://cursemaven.com"
         content {
@@ -31,8 +32,16 @@ base {
 // Mojang ships Java 21 to end users in 1.21.1, so mods should target Java 21.
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
+sourceSets {
+    gametest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
 neoForge {
     version = project.neo_version
+    addModdingDependenciesTo(sourceSets.gametest)
 
     parchment {
         mappingsVersion = project.parchment_mappings_version
@@ -49,6 +58,13 @@ neoForge {
             programArgument '--nogui'
         }
 
+        gameTestServer {
+            type = "gameTestServer"
+            sourceSet = sourceSets.gametest
+            gameDirectory = project.file('run/gametest')
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
         configureEach {
             systemProperty 'forge.logging.markers', 'REGISTRIES'
             logLevel = org.slf4j.event.Level.DEBUG
@@ -58,6 +74,7 @@ neoForge {
     mods {
         "${mod_id}" {
             sourceSet(sourceSets.main)
+            sourceSet(sourceSets.gametest)
         }
     }
 }
@@ -65,12 +82,23 @@ neoForge {
 // Like runtimeOnly, but the dependency is present for runtime testing without being published.
 configurations {
     runtimeClasspath.extendsFrom localRuntime
+    gametestCompileOnly.extendsFrom compileOnly
+    gametestImplementation.extendsFrom implementation
+    gametestRuntimeOnly.extendsFrom localRuntime
 }
 
 dependencies {
     compileOnly "curse.maven:projecte-226410:6611984"
     localRuntime "curse.maven:projecte-226410:6611984"
     localRuntime "mezz.jei:jei-1.21.1-neoforge:19.69.0.457"
+
+    jarJar(implementation("io.github.aevns:fast-maxent-sampler")) {
+        version {
+            strictly "[0.2.0,0.3.0)"
+            prefer "0.2.0"
+        }
+    }
+    additionalRuntimeClasspath "io.github.aevns:fast-maxent-sampler:0.2.0"
 }
 
 // Expands the ${} properties in src/main/templates into the generated mod metadata.

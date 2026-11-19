@@ -6,7 +6,7 @@ import aevns.entropictransmutation.api.TransmuterAddon;
 import aevns.entropictransmutation.block.entity.TransmuterBlockEntity;
 import aevns.entropictransmutation.menu.TransmuterMenu;
 import aevns.entropictransmutation.registry.ETAddons;
-import aevns.entropictransmutation.samplers.maxent.MaxEntSampler;
+import aevns.entropictransmutation.samplers.EmcSampler;
 import net.minecraft.ChatFormatting;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.gui.GuiGraphics;
@@ -201,14 +201,14 @@ public class TransmuterScreen extends AbstractContainerScreen<TransmuterMenu> {
 
     /** How many times the mean value of each output item grows, as the input's value is split across fewer items. */
     private static double valueMultiplier(TransmutationSettings settings) {
-        double[] counts = MaxEntSampler.SUPPORTED_EXPECTED_COUNTS;
+        double[] counts = EmcSampler.SUPPORTED_EXPECTED_COUNTS;
         return (double) TransmuterBlockEntity.OUTPUT_COUNT / settings.sampleCount()
                 * counts[TransmutationSettings.DEFAULT_COUNT_INDEX] / counts[settings.countIndex()]
                 * settings.voidMultiplier();
     }
 
     private static String expectedCount(int countIndex) {
-        return NUMBER.format(MaxEntSampler.SUPPORTED_EXPECTED_COUNTS[countIndex]);
+        return NUMBER.format(EmcSampler.SUPPORTED_EXPECTED_COUNTS[countIndex]);
     }
 
     /** The attached count, ignoring any beyond the most that have an effect. */

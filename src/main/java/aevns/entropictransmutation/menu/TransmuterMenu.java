@@ -19,7 +19,6 @@ import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import net.neoforged.neoforge.items.SlotItemHandler;
 
@@ -49,31 +48,32 @@ public class TransmuterMenu extends AbstractContainerMenu {
     private final ContainerLevelAccess access;
     private final ContainerData data;
 
-    /** Client side: wraps the block entity's synced copy, or empty stand-ins if it hasn't arrived yet. */
+    /**
+     * Client side. The slots hold the menu's own copies, which the server keeps in sync while the menu is open; the
+     * block entity's handlers stay empty on the client. The block entity, if it has arrived, is only consulted for
+     * whether the input may be topped up.
+     */
     public TransmuterMenu(int containerId, Inventory playerInventory, RegistryFriendlyByteBuf extraData) {
         this(containerId, playerInventory,
                 playerInventory.player.level().getBlockEntity(extraData.readBlockPos()) instanceof TransmuterBlockEntity transmuter
                         ? transmuter : null,
+                new ItemStackHandler(1), new ItemStackHandler(TransmuterBlockEntity.OUTPUT_COUNT),
                 new SimpleContainerData(dataSize()));
     }
 
-    /** Server side. */
+    /** Server side: the slots are the block entity's own handlers. */
     public TransmuterMenu(int containerId, Inventory playerInventory, TransmuterBlockEntity transmuter) {
-        this(containerId, playerInventory, transmuter, new ServerData(transmuter));
+        this(containerId, playerInventory, transmuter, transmuter.getInputHandler(), transmuter.getOutputHandler(),
+                new ServerData(transmuter));
     }
 
-    private TransmuterMenu(int containerId, Inventory playerInventory,
-                           @Nullable TransmuterBlockEntity transmuter, ContainerData data) {
+    private TransmuterMenu(int containerId, Inventory playerInventory, @Nullable TransmuterBlockEntity transmuter,
+                           ItemStackHandler input, ItemStackHandler outputs, ContainerData data) {
         super(ETMenuTypes.TRANSMUTER.get(), containerId);
         this.access = transmuter != null
                 ? ContainerLevelAccess.create(transmuter.getLevel(), transmuter.getBlockPos())
                 : ContainerLevelAccess.NULL;
         this.data = data;
-
-        IItemHandler input = transmuter != null ? transmuter.getInputHandler() : new ItemStackHandler(1);
-        IItemHandler outputs = transmuter != null
-                ? transmuter.getOutputHandler()
-                : new ItemStackHandler(TransmuterBlockEntity.OUTPUT_COUNT);
 
         addSlot(new SlotItemHandler(input, 0, INPUT_X, INPUT_Y) {
             @Override
@@ -85,7 +85,7 @@ public class TransmuterMenu extends AbstractContainerMenu {
             // Merging into an occupied slot grows the stack in place, which the handler doesn't see on its own
             @Override
             public void setChanged() {
-                if (transmuter != null) transmuter.getInputHandler().setStackInSlot(0, getItem());
+                input.setStackInSlot(0, getItem());
             }
         });
         for (int i = 0; i < TransmuterBlockEntity.OUTPUT_COUNT; i++) {

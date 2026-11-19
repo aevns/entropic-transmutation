@@ -2,6 +2,7 @@ package aevns.entropictransmutation;
 
 import aevns.entropictransmutation.config.ETConfig;
 import aevns.entropictransmutation.registry.ETAddons;
+import aevns.entropictransmutation.registry.ETAttachments;
 import aevns.entropictransmutation.registry.ETBlockEntities;
 import aevns.entropictransmutation.registry.ETBlocks;
 import aevns.entropictransmutation.registry.ETCreativeTabs;
@@ -21,6 +22,7 @@ public class EntropicTransmutation {
         ETBlocks.register(modEventBus);
         ETItems.register(modEventBus);
         ETAddons.register(modEventBus);
+        ETAttachments.register(modEventBus);
         ETBlockEntities.register(modEventBus);
         ETMenuTypes.register(modEventBus);
         ETCreativeTabs.register(modEventBus);

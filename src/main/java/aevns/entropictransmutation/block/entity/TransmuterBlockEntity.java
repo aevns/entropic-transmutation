@@ -15,6 +15,7 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.network.Connection;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
@@ -32,6 +33,7 @@ import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.items.ItemStackHandler;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +46,8 @@ public class TransmuterBlockEntity extends BlockEntity {
     /** Value an input must fall short of the minimum mean payout by for the machine to be certain to explode. */
     private static final double CERTAIN_EXPLOSION_SHORTFALL = 20000;
     private static final float EXPLOSION_POWER = 1.0f;
+    /** Bits of the contents flags that clients are sent. */
+    private static final byte HAS_INPUT = 1, HAS_OUTPUT = 2;
 
     /** One transmutation of the current input, with the addons attached at the time. */
     private record Transmutation(TransmutationSettings settings, double inputValue) {
@@ -62,6 +66,16 @@ public class TransmuterBlockEntity extends BlockEntity {
     private long transmutationTime = -1;
     /** Suppresses per-slot notifications during multi-slot changes. */
     private boolean batching = false;
+    /** This level's sampler, fetched on the first transmutation. */
+    @Nullable
+    private EmcSampler.LevelSampler sampler;
+    /**
+     * Which slots hold items, as HAS_INPUT and HAS_OUTPUT bits: on the server, as clients were last told; on the
+     * client, as it was last told. Clients only need these, to predict which interactions succeed.
+     */
+    private byte syncedContents;
+    /** The comparator signal that neighbours were last updated with. Server only. */
+    private int syncedSignal;
 
     private final ItemStackHandler inputSlot = new ItemStackHandler(1) {
         @Override
@@ -110,28 +124,48 @@ public class TransmuterBlockEntity extends BlockEntity {
         if (tag.contains("OutputSlots")) {
             outputSlots.deserializeNBT(registries, tag.getCompound("OutputSlots"));
         }
+        // Clients and comparators are brought up to date with what was saved when the chunk loads
+        syncedContents = contents();
+        syncedSignal = getOutputSignal();
     }
 
+    /** Clients are sent only which slots hold items, not the items themselves; open menus sync those. */
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-        return saveCustomOnly(registries);
+        CompoundTag tag = new CompoundTag();
+        tag.putByte("Contents", contents());
+        return tag;
     }
 
     @Override
     public Packet<ClientGamePacketListener> getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
     }
-    // NeoForge's default onDataPacket calls loadWithComponents -> loadAdditional, so no override needed.
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag, HolderLookup.Provider registries) {
+        syncedContents = tag.getByte("Contents");
+    }
+
+    @Override
+    public void onDataPacket(Connection connection, ClientboundBlockEntityDataPacket packet,
+                             HolderLookup.Provider registries) {
+        handleUpdateTag(packet.getTag(), registries);
+    }
 
     // ------------------------------------------------------------------
     // Shared with the block, menu and screen
     // ------------------------------------------------------------------
 
+    /** Whether the input slot is empty. On the client, as last synced. */
     public boolean isInputEmpty() {
+        if (isClientSide()) return (syncedContents & HAS_INPUT) == 0;
         return inputSlot.getStackInSlot(0).isEmpty();
     }
 
+    /** Whether every output slot is empty. On the client, as last synced. */
     public boolean isOutputEmpty() {
+        if (isClientSide()) return (syncedContents & HAS_OUTPUT) == 0;
         for (int i = 0; i < outputSlots.getSlots(); i++) {
             if (!outputSlots.getStackInSlot(i).isEmpty()) return false;
         }
@@ -173,12 +207,12 @@ public class TransmuterBlockEntity extends BlockEntity {
         return Math.min(15, ItemHandlerHelper.calcRedstoneFromInventory(outputSlots));
     }
 
-    /** Raw input handler for menu slots, which enforce the insert rules themselves via canTopUpInput. */
+    /** Raw input handler for server-side menu slots, which enforce the insert rules themselves via canTopUpInput. */
     public ItemStackHandler getInputHandler() {
         return inputSlot;
     }
 
-    /** Raw output handler for menu slots, which must not accept insertion. */
+    /** Raw output handler for server-side menu slots, which must not accept insertion. */
     public ItemStackHandler getOutputHandler() {
         return outputSlots;
     }
@@ -243,13 +277,14 @@ public class TransmuterBlockEntity extends BlockEntity {
 
             TransmutationSettings settings = transmutation.settings();
             boolean sampling = rng.nextInt(settings.voidMultiplier()) == 0;
+            if (sampler == null) sampler = EmcSampler.forLevel(level);
             batching = true;
             inputSlot.setStackInSlot(0, ItemStack.EMPTY);
             for (int i = 0; sampling && i < settings.sampleCount(); i++) {
-                outputSlots.setStackInSlot(i, EmcSampler.sampleItemStack(settings.countIndex(), share, rng));
+                outputSlots.setStackInSlot(i, sampler.sampleItemStack(settings.countIndex(), share));
             }
             batching = false;
-            markDirtyAndSync(level);
+            publishChanges(level);
         }
 
         if (isOutputEmpty()) {
@@ -316,7 +351,16 @@ public class TransmuterBlockEntity extends BlockEntity {
     private void onInventoryChanged() {
         if (batching || !(this.level instanceof ServerLevel level)) return;
         updateTimer(level);
-        markDirtyAndSync(level);
+        publishChanges(level);
+    }
+
+    private boolean isClientSide() {
+        return level != null && level.isClientSide;
+    }
+
+    /** Which slots hold items, as HAS_INPUT and HAS_OUTPUT bits. Server only. */
+    private byte contents() {
+        return (byte) ((isInputEmpty() ? 0 : HAS_INPUT) | (isOutputEmpty() ? 0 : HAS_OUTPUT));
     }
 
     /** Starts the timer when the input becomes non-empty; top-ups don't reset it. */
@@ -339,14 +383,27 @@ public class TransmuterBlockEntity extends BlockEntity {
         level.scheduleTick(worldPosition, getBlockState().getBlock(), delay);
     }
 
-    private void markDirtyAndSync(ServerLevel level) {
-        setChanged(); // updates comparators around this block
-        BlockPos above = worldPosition.above();
-        BlockState aboveState = level.getBlockState(above);
-        if (aboveState.is(ETBlocks.TRANSMUTER_MONITOR)) {
-            level.updateNeighbourForOutputSignal(above, aboveState.getBlock());
+    /**
+     * Marks the chunk for saving, and tells comparators and clients about the change only if what they see changed:
+     * pipes emptying a machine can change its inventory many times per transmutation.
+     */
+    private void publishChanges(ServerLevel level) {
+        level.blockEntityChanged(worldPosition);
+        int signal = getOutputSignal();
+        if (signal != syncedSignal) {
+            syncedSignal = signal;
+            level.updateNeighbourForOutputSignal(worldPosition, getBlockState().getBlock());
+            BlockPos above = worldPosition.above();
+            BlockState aboveState = level.getBlockState(above);
+            if (aboveState.is(ETBlocks.TRANSMUTER_MONITOR)) {
+                level.updateNeighbourForOutputSignal(above, aboveState.getBlock());
+            }
         }
-        level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
+        byte contents = contents();
+        if (contents != syncedContents) {
+            syncedContents = contents;
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
+        }
     }
 
     private class AutomationHandler implements IItemHandler {
